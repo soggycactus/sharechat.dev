@@ -42,7 +42,6 @@ func TestListen(t *testing.T) {
 
 	// We don't compare the structs outright here because it results in a race condition
 	// since both messages have the same memory reference
-	assert.Equal(t, message.ID, result.ID, "message IDs should be equal")
 	assert.Equal(t, message.Message, result.Message, "message content should be equal")
 	assert.Equal(t, message.Type, result.Type, "message type should be equal")
 	assert.Equal(t, message.Sent, result.Sent, "message timestamp should be equal")

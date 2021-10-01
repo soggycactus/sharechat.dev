@@ -31,8 +31,15 @@ func TestRoomOutbound(t *testing.T) {
 	room.Outbound(message)
 	// receiving from doneCh blocks until the subscribe is complete
 	<-doneCh
-	// it is now safe to make our assertions
-	assert.Equal(t, message, messageRepo.Messages[message.ID], "message should be recorded")
+	// We don't compare the structs outright here because it results in a race condition
+	// since both messages have the same memory reference
+	result := messageRepo.Messages[message.ID]
+	assert.Equal(t, message.Message, result.Message, "message content should be equal")
+	assert.Equal(t, message.Type, result.Type, "message type should be equal")
+	assert.Equal(t, message.Sent, result.Sent, "message timestamp should be equal")
+	assert.Equal(t, message.RoomID, result.RoomID, "message room ids should be equal")
+	assert.Equal(t, message.Member.ID, result.Member.ID, "member IDs should be equal")
+	assert.Equal(t, message.Member.Name, result.Member.Name, "member names should be equal")
 }
 
 func TestRoomSubscribe(t *testing.T) {
@@ -56,7 +63,7 @@ func TestRoomSubscribe(t *testing.T) {
 	<-doneCh
 	// it is now safe to make our assertions
 	result := room.Members()[member.ID]
-	assert.Equal(t, member, result, "member should be in room")
+	assert.Equal(t, member.Name, result.Name, "member names should be equal")
 }
 
 func TestRoomLeave(t *testing.T) {
