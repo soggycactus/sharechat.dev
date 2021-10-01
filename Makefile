@@ -4,7 +4,7 @@ clean:
 	rm -rf ./bin Gopkg.lock *.out
 
 unit-test:
-	@go test -v ./... -tags=unit
+	@go test -race -v ./... -tags=unit
 
 unit-coverage:
 	@go test -coverprofile=unit_coverage.out ./... -coverpkg=./... -tags=unit

@@ -10,11 +10,6 @@ import (
 	"github.com/soggycactus/sharechat.dev/sharechat"
 )
 
-type ServeRoomRequest struct {
-	UserName string `json:"username"`
-	RoomID   string `json:"room_id"`
-}
-
 func NewServeRoomHandler(repo sharechat.RoomRepository, upgrader websocket.Upgrader) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -39,7 +34,7 @@ func NewServeRoomHandler(repo sharechat.RoomRepository, upgrader websocket.Upgra
 			return
 		}
 
-		sub := sharechat.NewMember(uuid.NewString(), room, conn)
+		sub := sharechat.NewMember(uuid.NewString(), room, &Connection{conn: conn})
 		go sub.Listen()
 		go sub.Broadcast()
 	}
