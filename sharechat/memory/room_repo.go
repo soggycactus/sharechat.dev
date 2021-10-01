@@ -37,7 +37,7 @@ func (m *RoomRepo) GetRoomMembers(roomID string) (*[]sharechat.Member, error) {
 	members := []sharechat.Member{}
 
 	for _, member := range room.Members() {
-		members = append(members, member)
+		members = append(members, *member)
 	}
 
 	return &members, nil

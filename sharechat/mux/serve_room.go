@@ -39,7 +39,7 @@ func NewServeRoomHandler(repo sharechat.RoomRepository, upgrader websocket.Upgra
 			return
 		}
 
-		sub := sharechat.NewMember(uuid.NewString(), *room, conn)
+		sub := sharechat.NewMember(uuid.NewString(), room, conn)
 		go sub.Listen()
 		go sub.Broadcast()
 	}

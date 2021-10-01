@@ -14,25 +14,31 @@ type MemberRepository interface {
 	DeleteMember(member Member) (*Message, error)
 }
 
+type WebsocketConn interface {
+	WriteJSON(v interface{}) error
+	ReadMessage() (messageType int, p []byte, err error)
+}
+
 type Member struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	// Members are bound to exactly one Room, so embed it here
 	room *Room
 	// inbound receives Messages from Room
 	inbound chan Message
 	// disconnect relays a message from Broadcast to Listen
 	// that the user has gone offline & closes the goroutine
 	disconnect chan disconnect
-	conn       *websocket.Conn
+	conn       WebsocketConn
 }
 
 type disconnect struct{}
 
-func NewMember(name string, room Room, conn *websocket.Conn) *Member {
+func NewMember(name string, room *Room, conn WebsocketConn) *Member {
 	return &Member{
 		ID:         uuid.New().String(),
 		Name:       name,
-		room:       &room,
+		room:       room,
 		inbound:    make(chan Message),
 		disconnect: make(chan disconnect),
 		conn:       conn,
@@ -46,7 +52,7 @@ func (s *Member) RoomID() string {
 // Listen receives messages from the Room and forwards them to the websocket connection
 func (s *Member) Listen() {
 	log.Printf("listening for messages for %s", s.Name)
-	s.room.subscribe <- *s
+	s.room.Subscribe(*s)
 	for {
 		select {
 		case message := <-s.inbound:
@@ -71,7 +77,7 @@ func (s *Member) Broadcast() {
 					log.Printf("close error for member %s: %v", s.Name, closeErr)
 				}
 				s.disconnect <- disconnect{}
-				s.room.leave <- *s
+				s.room.Leave(*s)
 				return
 			}
 
@@ -80,6 +86,6 @@ func (s *Member) Broadcast() {
 		}
 
 		message := NewChatMessage(*s, bytes)
-		s.room.outbound <- message
+		s.room.Outbound(message)
 	}
 }
