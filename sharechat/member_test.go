@@ -1,3 +1,5 @@
+//go:build unit || all
+
 package sharechat_test
 
 import (
