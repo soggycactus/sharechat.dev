@@ -56,8 +56,10 @@ func (r *Room) Members() map[string]*Member {
 func (r *Room) Start() {
 	log.Printf("starting room %v", r.ID)
 	for {
+		r.testNoop()
 		select {
 		case message := <-r.outbound:
+			log.Print("outbound received")
 			if err := r.messageRepo.InsertMessage(message); err == nil {
 				for _, member := range r.members {
 					r.notifyMember(message, *member)

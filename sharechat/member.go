@@ -19,24 +19,26 @@ type Member struct {
 	room *Room
 	// inbound receives Messages from Room
 	inbound chan Message
-	// disconnect relays a message from Broadcast to Listen
-	// that the user has gone offline & closes the goroutine
-	disconnect chan struct{}
-	conn       Connection
-	// testNoop is a hook for synchronizing goroutines in tests.
-	// It is called during Listen
-	testNoop func(interface{})
+	// channels to shut down the goroutines
+	stopListen    chan struct{}
+	stopBroadcast chan struct{}
+	conn          Connection
+	// hooks for synchronizing goroutines during tests
+	listenNoop   func()
+	brodcastNoop func()
 }
 
 func NewMember(name string, room *Room, conn Connection) *Member {
 	return &Member{
-		ID:         uuid.New().String(),
-		Name:       name,
-		room:       room,
-		inbound:    make(chan Message),
-		disconnect: make(chan struct{}),
-		conn:       conn,
-		testNoop:   func(i interface{}) {},
+		ID:            uuid.New().String(),
+		Name:          name,
+		room:          room,
+		inbound:       make(chan Message),
+		stopListen:    make(chan struct{}),
+		stopBroadcast: make(chan struct{}),
+		conn:          conn,
+		listenNoop:    func() {},
+		brodcastNoop:  func() {},
 	}
 }
 
@@ -47,38 +49,46 @@ func (s *Member) RoomID() string {
 // Listen receives messages from the Room and forwards them to the websocket connection
 func (s *Member) Listen() {
 	log.Printf("listening for messages for %s", s.Name)
-	s.room.Subscribe(*s)
-	s.testNoop(nil)
 	for {
+		s.listenNoop()
 		select {
 		case message := <-s.inbound:
 			if err := s.conn.WriteMessage(message); err != nil {
 				log.Printf("failed to write message to Member %s: %v", s.Name, err)
 			}
-		case <-s.disconnect:
+		case <-s.stopListen:
+			s.listenNoop()
 			return
 		}
-		s.testNoop(nil)
+		s.listenNoop()
 	}
 }
 
 // Broadcast receives messages from the websocket connection and forwards them to the Room
 func (s *Member) Broadcast() {
 	for {
-		bytes, err := s.conn.ReadBytes()
-		if err != nil {
-			if err != ExpectedCloseError {
-				log.Printf("failed to read websocket for member %s: %v", s.Name, err)
-			}
-			s.disconnect <- struct{}{}
-			s.room.Leave(*s)
-			s.testNoop(err)
+		select {
+		case <-s.stopBroadcast:
+			s.brodcastNoop()
 			return
-		}
+		default:
+			bytes, err := s.conn.ReadBytes()
+			if err != nil {
+				log.Print("error")
+				if err != ExpectedCloseError {
+					log.Printf("failed to read websocket for member %s: %v", s.Name, err)
+				}
+				// s.room.Leave(*s)
+				s.brodcastNoop()
+				return
+			}
 
-		message := NewChatMessage(*s, bytes)
-		s.room.Outbound(message)
-		s.testNoop(message)
+			message := NewChatMessage(*s, bytes)
+			log.Print("sending")
+			s.room.Outbound(message)
+			log.Print("sent")
+			s.brodcastNoop()
+		}
 	}
 }
 
@@ -86,7 +96,20 @@ func (m *Member) Inbound(message Message) {
 	m.inbound <- message
 }
 
-func (m *Member) WithTestNoop(f func(interface{})) *Member {
-	m.testNoop = f
+func (m *Member) StopListen() {
+	m.stopListen <- struct{}{}
+}
+
+func (m *Member) StopBroadcast() {
+	m.stopBroadcast <- struct{}{}
+}
+
+func (m *Member) WithListenNoop(f func()) *Member {
+	m.listenNoop = f
+	return m
+}
+
+func (m *Member) WithBroadcastNoop(f func()) *Member {
+	m.brodcastNoop = f
 	return m
 }

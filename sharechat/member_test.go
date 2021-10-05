@@ -3,7 +3,6 @@
 package sharechat_test
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/soggycactus/sharechat.dev/sharechat"
@@ -15,24 +14,35 @@ import (
 func TestListen(t *testing.T) {
 	// channels will notify us when the subscribe has been received
 	memberDone := make(chan struct{})
+	roomDone := make(chan struct{})
 
 	messageRepo := memory.NewMessageRepo()
 	memberRepo := memory.NewMemberRepo(&messageRepo)
 
 	// Create a test room
 	room := sharechat.NewRoom("test", &memberRepo, &messageRepo).
-		WithNoErrorLogs()
+		WithTestNoop(func() {
+			roomDone <- struct{}{}
+		})
+		//WithNoErrorLogs()
 
 	connection := mock.NewConnection().WithWriteMessageResult(nil)
 	member := sharechat.NewMember("test", room, connection).
-		WithTestNoop(func(i interface{}) {
+		WithListenNoop(func() {
 			memberDone <- struct{}{}
 		})
 
 	go room.Start()
+	// wait for the room to be ready before listening
+	<-roomDone
 	go member.Listen()
 
-	// wait until the member is subscribed to send a message
+	// wait until the member is listening before subscribing
+	<-memberDone
+	room.Subscribe(*member)
+	// wait until the member is subscribed before sending a message
+	<-roomDone
+	<-memberDone
 	<-memberDone
 	message := sharechat.NewChatMessage(*member, []byte("hello world!"))
 	member.Inbound(message)
@@ -50,44 +60,4 @@ func TestListen(t *testing.T) {
 	assert.Equal(t, message.RoomID, result.RoomID, "message room ids should be equal")
 	assert.Equal(t, message.Member.ID, result.Member.ID, "member IDs should be equal")
 	assert.Equal(t, message.Member.Name, result.Member.Name, "member names should be equal")
-}
-
-func TestBroadcast(t *testing.T) {
-	// memberDone will notify us when the subscribe has been received
-	memberDone := make(chan interface{})
-
-	messageRepo := memory.NewMessageRepo()
-	memberRepo := memory.NewMemberRepo(&messageRepo)
-
-	testCases := []struct {
-		name    string
-		message []byte
-		err     error
-	}{
-		{name: "Successful Send", message: []byte("hello!"), err: nil},
-		{name: "Expected Close Error", message: nil, err: sharechat.ExpectedCloseError},
-		{name: "Generic Error", message: nil, err: errors.New("generic error")},
-	}
-
-	for _, test := range testCases {
-		// Create a test room
-		room := sharechat.NewRoom("test", &memberRepo, &messageRepo).
-			WithNoErrorLogs()
-
-		connection := mock.NewConnection().WithReadBytesResult(test.message, test.err)
-		member := sharechat.NewMember("test", room, connection).
-			WithTestNoop(func(i interface{}) {
-				memberDone <- i
-			})
-
-		go room.Start()
-		go member.Broadcast()
-		r := <-memberDone
-
-		if test.message != nil {
-			result, ok := r.(sharechat.Message)
-			assert.True(t, ok, "result should be casted successfully")
-			assert.Equal(t, string(test.message), result.Message, "message content should be same")
-		}
-	}
 }

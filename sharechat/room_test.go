@@ -27,6 +27,8 @@ func TestRoomOutbound(t *testing.T) {
 	room = room.WithMembers(*member)
 
 	go room.Start()
+	// wait for the room to be ready
+	<-doneCh
 	message := sharechat.NewChatMessage(*member, []byte("hello world!"))
 	room.Outbound(message)
 	// receiving from doneCh blocks until the subscribe is complete
@@ -57,6 +59,8 @@ func TestRoomSubscribe(t *testing.T) {
 		WithNoErrorLogs()
 
 	go room.Start()
+	// wait for the room to be ready
+	<-doneCh
 	member := sharechat.NewMember("test", room, nil)
 	room.Subscribe(*member)
 	// receiving from doneCh blocks until the subscribe is complete
@@ -83,6 +87,8 @@ func TestRoomLeave(t *testing.T) {
 	room = room.WithMembers(*member)
 
 	go room.Start()
+	// wait for the room to be ready
+	<-doneCh
 	room.Leave(*member)
 	// receiving from doneCh blocks until the subscribe is complete
 	<-doneCh

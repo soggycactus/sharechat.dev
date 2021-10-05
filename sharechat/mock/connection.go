@@ -1,10 +1,15 @@
 package mock
 
-import "github.com/soggycactus/sharechat.dev/sharechat"
+import (
+	"sync"
+
+	"github.com/soggycactus/sharechat.dev/sharechat"
+)
 
 type Connection struct {
 	readResult  readBytesResult
 	writeResult error
+	mu          sync.Mutex
 	inbound     map[string]*sharechat.Message
 }
 
@@ -18,7 +23,9 @@ type readBytesResult struct {
 }
 
 func (c *Connection) WriteMessage(v sharechat.Message) error {
+	c.mu.Lock()
 	c.inbound[v.ID] = &v
+	c.mu.Unlock()
 	return c.writeResult
 }
 
@@ -37,5 +44,7 @@ func (c *Connection) WithWriteMessageResult(err error) *Connection {
 }
 
 func (c *Connection) InboundMessages() map[string]*sharechat.Message {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.inbound
 }
