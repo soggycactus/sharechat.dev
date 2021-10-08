@@ -19,7 +19,7 @@ func (w *Connection) ReadBytes() ([]byte, error) {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				return bytes, err
 			}
-			return bytes, sharechat.ExpectedCloseError
+			return bytes, sharechat.ErrExpectedClose
 		}
 	}
 	return bytes, err

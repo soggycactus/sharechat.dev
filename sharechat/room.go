@@ -1,50 +1,52 @@
 package sharechat
 
 import (
+	"context"
 	"log"
+	"sync"
 
 	"github.com/google/uuid"
 )
 
 type RoomRepository interface {
-	InsertRoom(room *Room) error
-	GetRoom(roomID string) (*Room, error)
-	GetRoomMembers(roomID string) (*[]Member, error)
-	DeleteRoom(roomID string) error
+	InsertRoom(ctx context.Context, room *Room) error
+	GetRoom(ctx context.Context, roomID string) (*Room, error)
+	DeleteRoom(ctx context.Context, roomID string) error
 }
 
 type Room struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
-	// outbound notifies all Online members of a new message
-	outbound chan Message
-	// subscribe adds a member to the Room and sets their status to Online
-	subscribe chan Member
-	// leave removes a member from the room entirely
-	leave chan Member
-	// Members holds all the local members of a room
-	members     map[string]*Member
-	memberRepo  MemberRepository
-	messageRepo MessageRepository
-	// testNoop is a hook for synchronizing goroutines in tests.
-	// It is called at the end of each receive in Start
-	testNoop func()
+	// members holds the local Members of a room
+	members map[string]*Member
+	// inbound forwards Messages to members
+	inbound chan Message
+	// shutdown stops the Room
+	shutdown chan struct{}
+	// ready is used to communicate the Start goroutine is running
+	ready chan struct{}
+	// stopped is used to communicate the Start goroutine has finished
+	stopped chan struct{}
+	// sync.Once to close inbound
+	closeInbound *sync.Once
+	// callbackInbound is a hook for synchronizing goroutines in tests.
+	callbackInbound func(*Message)
 	// flag used in tests to turn off error logging
 	logErrors bool
 }
 
-func NewRoom(name string, memberRepo MemberRepository, messageRepo MessageRepository) *Room {
+func NewRoom(name string) *Room {
 	return &Room{
-		ID:          uuid.New().String(),
-		Name:        name,
-		outbound:    make(chan Message),
-		subscribe:   make(chan Member),
-		leave:       make(chan Member),
-		members:     make(map[string]*Member),
-		memberRepo:  memberRepo,
-		messageRepo: messageRepo,
-		testNoop:    func() {},
-		logErrors:   true,
+		ID:              uuid.New().String(),
+		Name:            name,
+		members:         make(map[string]*Member),
+		inbound:         make(chan Message),
+		shutdown:        make(chan struct{}),
+		ready:           make(chan struct{}),
+		stopped:         make(chan struct{}),
+		closeInbound:    &sync.Once{},
+		callbackInbound: func(*Message) {},
+		logErrors:       true,
 	}
 }
 
@@ -53,74 +55,73 @@ func (r *Room) Members() map[string]*Member {
 }
 
 // Room constantly listens for messages and forwards them to existing members
-func (r *Room) Start() {
-	log.Printf("starting room %v", r.ID)
+func (r *Room) Start(ctx context.Context) {
+	r.ready <- struct{}{}
 	for {
-		r.testNoop()
 		select {
-		case message := <-r.outbound:
-			log.Print("outbound received")
-			if err := r.messageRepo.InsertMessage(message); err == nil {
+		case message, ok := <-r.inbound:
+			if !ok {
+				return
+			}
+			switch message.Type {
+			case Chat:
 				for _, member := range r.members {
-					r.notifyMember(message, *member)
+					r.notifyMember(ctx, message, *member)
 				}
-			} else {
-				if r.logErrors {
-					log.Printf("failed to insert message %s in room %s: %v", message.ID, r.ID, err)
+			case MemberJoined:
+				r.members[message.Member.ID] = &message.Member
+				for _, member := range r.members {
+					r.notifyMember(ctx, message, *member)
+				}
+			case MemberLeft:
+				delete(r.members, message.Member.ID)
+				for _, member := range r.members {
+					r.notifyMember(ctx, message, *member)
 				}
 			}
-		case newMember := <-r.subscribe:
-			if message, err := r.memberRepo.InsertMember(newMember); err == nil {
-				r.members[newMember.ID] = &newMember
-				for _, member := range r.members {
-					r.notifyMember(
-						*message,
-						*member,
-					)
-				}
-			} else {
-				if r.logErrors {
-					log.Printf("failed to insert member %s in room %s: %v", newMember.Name, r.ID, err)
-				}
+			r.callbackInbound(&message)
+		case <-r.shutdown:
+			for _, member := range r.members {
+				member.stopListen <- struct{}{}
+				member.stopBroadcast <- struct{}{}
 			}
-		case leaveMember := <-r.leave:
-			if message, err := r.memberRepo.DeleteMember(leaveMember); err == nil {
-				delete(r.members, leaveMember.ID)
-				for _, member := range r.members {
-					r.notifyMember(
-						*message,
-						*member,
-					)
-				}
-			} else {
-				if r.logErrors {
-					log.Printf("failed to remove member %s from room %s: %v", leaveMember.Name, r.ID, err)
-				}
-			}
+			defer func() { r.stopped <- struct{}{} }()
+			return
 		}
-		r.testNoop()
 	}
 }
 
-func (r *Room) Subscribe(member Member) {
-	r.subscribe <- member
+func (r *Room) Inbound(ctx context.Context, message Message) error {
+	select {
+	case r.inbound <- message:
+		return nil
+	case <-ctx.Done():
+		return ErrSendTimedOut
+	}
 }
 
-func (r *Room) Outbound(message Message) {
-	r.outbound <- message
+func (r *Room) CloseInbound() {
+	r.closeInbound.Do(func() {
+		close(r.inbound)
+	})
 }
 
-func (r *Room) Leave(member Member) {
-	r.leave <- member
+func (r *Room) Ready(ctx context.Context) error {
+	select {
+	case <-r.ready:
+		return nil
+	case <-ctx.Done():
+		return ErrRoomNotReady
+	}
 }
 
-func (r *Room) notifyMember(message Message, member Member) {
+func (r *Room) notifyMember(ctx context.Context, message Message, member Member) {
 	select {
 	case member.inbound <- message:
-	// if the send blocks, log it an move on
-	default:
+	// if the send blocks, log it and move on
+	case <-ctx.Done():
 		if r.logErrors {
-			log.Printf("failed to notify member %s of message %s", member.ID, message.ID)
+			log.Printf("failed to notify member %s of message %s: context deadline exceeded", member.ID, message.ID)
 		}
 	}
 }
@@ -132,8 +133,8 @@ func (r *Room) WithMembers(member ...Member) *Room {
 	return r
 }
 
-func (r *Room) WithTestNoop(f func()) *Room {
-	r.testNoop = f
+func (r *Room) WithCallbackInbound(f func(*Message)) *Room {
+	r.callbackInbound = f
 	return r
 }
 

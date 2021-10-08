@@ -11,8 +11,8 @@ type MessageRepo struct {
 	Messages map[string]sharechat.Message
 }
 
-func NewMessageRepo() MessageRepo {
-	return MessageRepo{
+func NewMessageRepo() *MessageRepo {
+	return &MessageRepo{
 		Messages: make(map[string]sharechat.Message),
 	}
 }

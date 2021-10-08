@@ -11,8 +11,8 @@ type MemberRepo struct {
 	messageRepo sharechat.MessageRepository
 }
 
-func NewMemberRepo(messageRepo sharechat.MessageRepository) MemberRepo {
-	return MemberRepo{
+func NewMemberRepo(messageRepo sharechat.MessageRepository) *MemberRepo {
+	return &MemberRepo{
 		Members:     make(map[string]sharechat.Member),
 		messageRepo: messageRepo,
 	}
@@ -32,7 +32,7 @@ func (m *MemberRepo) GetMembersByRoom(roomID string) (*[]sharechat.Member, error
 	members := []sharechat.Member{}
 
 	for _, member := range m.Members {
-		if member.RoomID() == roomID {
+		if member.RoomID == roomID {
 			members = append(members, member)
 		}
 	}

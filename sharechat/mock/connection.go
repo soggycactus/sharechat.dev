@@ -10,11 +10,12 @@ type Connection struct {
 	readResult  readBytesResult
 	writeResult error
 	mu          sync.Mutex
+	sent        bool
 	inbound     map[string]*sharechat.Message
 }
 
 func NewConnection() *Connection {
-	return &Connection{inbound: make(map[string]*sharechat.Message)}
+	return &Connection{sent: false, inbound: make(map[string]*sharechat.Message)}
 }
 
 type readBytesResult struct {
@@ -30,7 +31,15 @@ func (c *Connection) WriteMessage(v sharechat.Message) error {
 }
 
 func (c *Connection) ReadBytes() ([]byte, error) {
-	return c.readResult.bytes, c.readResult.err
+	c.mu.Lock()
+	if !c.sent {
+		c.sent = true
+		c.mu.Unlock()
+		return c.readResult.bytes, c.readResult.err
+	}
+	c.mu.Unlock()
+	// block forever so we don't keep sending messages
+	select {}
 }
 
 func (c *Connection) WithReadBytesResult(bytes []byte, err error) *Connection {
