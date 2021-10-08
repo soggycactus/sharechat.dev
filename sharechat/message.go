@@ -27,12 +27,13 @@ const (
 	Chat         MessageType = "chat"
 	MemberJoined MessageType = "joined"
 	MemberLeft   MessageType = "left"
+	SendFailed   MessageType = "failed"
 )
 
 func NewChatMessage(member Member, message []byte) Message {
 	return Message{
 		ID:      uuid.New().String(),
-		RoomID:  member.RoomID(),
+		RoomID:  member.RoomID,
 		Member:  member,
 		Type:    Chat,
 		Message: string(message),
@@ -43,7 +44,7 @@ func NewChatMessage(member Member, message []byte) Message {
 func NewMemberJoinedMessage(member Member) Message {
 	return Message{
 		ID:      uuid.New().String(),
-		RoomID:  member.RoomID(),
+		RoomID:  member.RoomID,
 		Member:  member,
 		Type:    MemberJoined,
 		Message: fmt.Sprintf("%s joined the room.", member.Name),
@@ -54,10 +55,21 @@ func NewMemberJoinedMessage(member Member) Message {
 func NewMemberLeftMessage(member Member) Message {
 	return Message{
 		ID:      uuid.New().String(),
-		RoomID:  member.RoomID(),
+		RoomID:  member.RoomID,
 		Member:  member,
 		Type:    MemberLeft,
 		Message: fmt.Sprintf("%s left the room.", member.Name),
+		Sent:    time.Now(),
+	}
+}
+
+func NewSendFailedMessage(member Member) Message {
+	return Message{
+		ID:      uuid.New().String(),
+		RoomID:  member.RoomID,
+		Member:  member,
+		Type:    SendFailed,
+		Message: "failed to send message",
 		Sent:    time.Now(),
 	}
 }

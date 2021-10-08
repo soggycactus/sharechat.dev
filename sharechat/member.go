@@ -1,11 +1,11 @@
 package sharechat
 
 import (
-	"errors"
+	"context"
 	"log"
+	"sync"
 
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 )
 
 type MemberRepository interface {
@@ -15,71 +15,149 @@ type MemberRepository interface {
 }
 
 type Member struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	room *Room
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	RoomID string `json:"room_id"`
+	conn   Connection
 	// inbound receives Messages from Room
 	inbound chan Message
-	// disconnect relays a message from Broadcast to Listen
-	// that the user has gone offline & closes the goroutine
-	disconnect chan disconnect
-	conn       *websocket.Conn
+	// outbound forwards Messages to the Controller
+	outbound chan Message
+	// channels to indicate goroutines are ready
+	readyListen    chan struct{}
+	readyBroadcast chan struct{}
+	// startBroadcast allows the Member to begin sending messages
+	startBroadcast chan struct{}
+	// channels to shut down the goroutines
+	stopListen    chan struct{}
+	stopBroadcast chan struct{}
+	// callbacks for synchronizing goroutines during tests
+	callbackListen func()
+	// sync.Once to safely close inbound
+	closeInbound *sync.Once
+	// sync.Once to safely close outbound
+	closeOutbound *sync.Once
 }
 
-type disconnect struct{}
-
-func NewMember(name string, room Room, conn *websocket.Conn) *Member {
+func NewMember(name string, roomID string, conn Connection) *Member {
 	return &Member{
-		ID:         uuid.New().String(),
-		Name:       name,
-		room:       &room,
-		inbound:    make(chan Message),
-		disconnect: make(chan disconnect),
-		conn:       conn,
+		ID:             uuid.New().String(),
+		Name:           name,
+		RoomID:         roomID,
+		inbound:        make(chan Message),
+		outbound:       make(chan Message),
+		readyListen:    make(chan struct{}),
+		readyBroadcast: make(chan struct{}),
+		startBroadcast: make(chan struct{}),
+		stopListen:     make(chan struct{}),
+		stopBroadcast:  make(chan struct{}),
+		conn:           conn,
+		callbackListen: func() {},
+		closeInbound:   &sync.Once{},
+		closeOutbound:  &sync.Once{},
 	}
 }
 
-func (s *Member) RoomID() string {
-	return s.room.ID
-}
-
 // Listen receives messages from the Room and forwards them to the websocket connection
-func (s *Member) Listen() {
-	log.Printf("listening for messages for %s", s.Name)
-	s.room.subscribe <- *s
+func (m *Member) Listen() {
+	m.readyListen <- struct{}{}
 	for {
 		select {
-		case message := <-s.inbound:
-			if err := s.conn.WriteJSON(message); err != nil {
-				log.Printf("failed to write message to Member %s: %v", s.Name, err)
+		case message, ok := <-m.inbound:
+			if !ok {
+				return
 			}
-		case <-s.disconnect:
+			if err := m.conn.WriteMessage(message); err != nil {
+				log.Printf("failed to write message to Member %s: %v", m.Name, err)
+			}
+		case <-m.stopListen:
+			m.callbackListen()
 			return
 		}
-
+		m.callbackListen()
 	}
 }
 
 // Broadcast receives messages from the websocket connection and forwards them to the Room
-func (s *Member) Broadcast() {
+func (m *Member) Broadcast() {
+	m.readyBroadcast <- struct{}{}
+	<-m.startBroadcast
 	for {
-		_, bytes, err := s.conn.ReadMessage()
-		if err != nil {
-			var closeErr *websocket.CloseError
-			if errors.As(err, &closeErr) {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					log.Printf("close error for member %s: %v", s.Name, closeErr)
+		select {
+		case <-m.stopBroadcast:
+			return
+		default:
+			bytes, err := m.conn.ReadBytes()
+			if err != nil {
+				if err != ErrExpectedClose {
+					log.Printf("failed to read websocket for member %s: %v", m.Name, err)
 				}
-				s.disconnect <- disconnect{}
-				s.room.leave <- *s
+				m.outbound <- NewMemberLeftMessage(*m)
 				return
 			}
 
-			log.Printf("failed to read websocket for member %s: %v", s.Name, err)
-			continue
+			message := NewChatMessage(*m, bytes)
+			m.outbound <- message
 		}
-
-		message := NewChatMessage(*s, bytes)
-		s.room.outbound <- message
 	}
+}
+
+func (m *Member) Inbound(ctx context.Context, message Message) error {
+	select {
+	case m.inbound <- message:
+		return nil
+	case <-ctx.Done():
+		return ErrSendTimedOut
+	}
+}
+
+func (m *Member) CloseInbound() {
+	m.closeInbound.Do(func() {
+		close(m.inbound)
+	})
+}
+
+func (m *Member) Outbound() Message {
+	return <-m.outbound
+}
+
+func (m *Member) CloseOutbound() {
+	m.closeOutbound.Do(func() {
+		close(m.outbound)
+	})
+}
+
+func (m *Member) ListenReady(ctx context.Context) error {
+	select {
+	case <-m.readyListen:
+		return nil
+	case <-ctx.Done():
+		return ErrNotListening
+	}
+}
+
+func (m *Member) BroadcastReady(ctx context.Context) error {
+	select {
+	case <-m.readyBroadcast:
+		return nil
+	case <-ctx.Done():
+		return ErrNotBroadcasting
+	}
+}
+
+func (m *Member) StartBroadcast() {
+	m.startBroadcast <- struct{}{}
+}
+
+func (m *Member) StopListen() {
+	m.stopListen <- struct{}{}
+}
+
+func (m *Member) StopBroadcast() {
+	m.stopBroadcast <- struct{}{}
+}
+
+func (m *Member) WithCallbackListen(f func()) *Member {
+	m.callbackListen = f
+	return m
 }

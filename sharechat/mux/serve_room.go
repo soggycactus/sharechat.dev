@@ -1,34 +1,23 @@
 package mux
 
 import (
+	"context"
+	"errors"
 	"log"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/soggycactus/sharechat.dev/sharechat"
 )
 
-type ServeRoomRequest struct {
-	UserName string `json:"username"`
-	RoomID   string `json:"room_id"`
-}
-
-func NewServeRoomHandler(repo sharechat.RoomRepository, upgrader websocket.Upgrader) func(w http.ResponseWriter, r *http.Request) {
+func NewServeRoomHandler(controller *sharechat.Controller, upgrader websocket.Upgrader) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		roomID, ok := vars["room"]
 		if !ok {
 			log.Printf("room path parameter not provided")
 			http.Error(w, "path parameter not provided", http.StatusBadRequest)
-			return
-		}
-
-		room, err := repo.GetRoom(roomID)
-		if err != nil {
-			log.Printf("room %s does not exist", roomID)
-			http.Error(w, "room does not exist", http.StatusNotFound)
 			return
 		}
 
@@ -39,8 +28,14 @@ func NewServeRoomHandler(repo sharechat.RoomRepository, upgrader websocket.Upgra
 			return
 		}
 
-		sub := sharechat.NewMember(uuid.NewString(), *room, conn)
-		go sub.Listen()
-		go sub.Broadcast()
+		if err := controller.ServeRoom(context.Background(), roomID, &Connection{conn: conn}); err != nil {
+			var publishErr *sharechat.ErrFailedToPublish
+			if errors.As(err, &publishErr) {
+				log.Printf("room %s is serving, but member failed to publish: %v", roomID, publishErr)
+				return
+			}
+			log.Printf("failed to serve room %s: %v", roomID, err)
+			return
+		}
 	}
 }

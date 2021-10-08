@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/soggycactus/sharechat.dev/sharechat"
 	"github.com/soggycactus/sharechat.dev/sharechat/memory"
 	muxHandlers "github.com/soggycactus/sharechat.dev/sharechat/mux"
 )
@@ -17,12 +18,18 @@ func main() {
 	// instantiate in-memory repos
 	roomRepo := memory.NewRoomRepo()
 	messageRepo := memory.NewMessageRepo()
-	memberRepo := memory.NewMemberRepo(&messageRepo)
+	memberRepo := memory.NewMemberRepo(messageRepo)
+	controller := sharechat.NewController(sharechat.NewControllerInput{
+		RoomRepo:    roomRepo,
+		MemberRepo:  memberRepo,
+		MessageRepo: messageRepo,
+		Queue:       memory.NewQueue(),
+	})
 
-	createRoom := muxHandlers.NewCreateRoomHandler(&roomRepo, &memberRepo, &messageRepo)
-	serveRoom := muxHandlers.NewServeRoomHandler(&roomRepo, upgrader)
-	getRoom := muxHandlers.NewGetRoomHandler(&roomRepo)
-	getMessages := muxHandlers.NewGetRoomMessagesHandler(&messageRepo)
+	createRoom := muxHandlers.NewCreateRoomHandler(controller)
+	serveRoom := muxHandlers.NewServeRoomHandler(controller, upgrader)
+	getRoom := muxHandlers.NewGetRoomHandler(controller)
+	getMessages := muxHandlers.NewGetRoomMessagesHandler(messageRepo)
 
 	router := mux.NewRouter()
 	router.HandleFunc("/api/room", createRoom).Methods(http.MethodPost)
