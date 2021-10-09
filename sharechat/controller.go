@@ -19,7 +19,7 @@ func NewController(input NewControllerInput) *Controller {
 		memberRepo:  input.MemberRepo,
 		messageRepo: input.MessageRepo,
 		queue:       input.Queue,
-		mu:          sync.Mutex{},
+		mu:          new(sync.Mutex),
 		roomCache:   make(map[string]*Room),
 	}
 }
@@ -30,7 +30,7 @@ type Controller struct {
 	messageRepo MessageRepository
 	queue       Queue
 
-	mu        sync.Mutex
+	mu        *sync.Mutex
 	roomCache map[string]*Room
 }
 

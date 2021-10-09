@@ -44,7 +44,7 @@ func NewRoom(name string) *Room {
 		shutdown:        make(chan struct{}),
 		ready:           make(chan struct{}),
 		stopped:         make(chan struct{}),
-		closeInbound:    &sync.Once{},
+		closeInbound:    new(sync.Once),
 		callbackInbound: func(*Message) {},
 		logErrors:       true,
 	}

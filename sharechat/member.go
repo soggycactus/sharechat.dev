@@ -53,8 +53,8 @@ func NewMember(name string, roomID string, conn Connection) *Member {
 		stopBroadcast:  make(chan struct{}),
 		conn:           conn,
 		callbackListen: func() {},
-		closeInbound:   &sync.Once{},
-		closeOutbound:  &sync.Once{},
+		closeInbound:   new(sync.Once),
+		closeOutbound:  new(sync.Once),
 	}
 }
 
