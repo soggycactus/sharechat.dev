@@ -3,6 +3,7 @@ package sharechat
 import (
 	"context"
 	"log"
+	"sync"
 )
 
 type NewControllerInput struct {
@@ -18,6 +19,7 @@ func NewController(input NewControllerInput) *Controller {
 		memberRepo:  input.MemberRepo,
 		messageRepo: input.MessageRepo,
 		queue:       input.Queue,
+		mu:          sync.Mutex{},
 		roomCache:   make(map[string]*Room),
 	}
 }
@@ -28,6 +30,7 @@ type Controller struct {
 	messageRepo MessageRepository
 	queue       Queue
 
+	mu        sync.Mutex
 	roomCache map[string]*Room
 }
 
@@ -37,9 +40,9 @@ func (c *Controller) CreateRoom(ctx context.Context, name string, callbackFn ...
 		// we don't support passing in multiple callback functions
 		room = room.WithCallbackInbound(callbackFn[0])
 	}
-	c.roomCache[room.ID] = room
+	c.addRoomToCache(room)
 	if err := c.startRoom(ctx, room); err != nil {
-		delete(c.roomCache, room.ID)
+		c.deleteRoomFromCache(room.ID)
 		return nil, err
 	}
 
@@ -50,7 +53,7 @@ func (c *Controller) CreateRoom(ctx context.Context, name string, callbackFn ...
 			// We close the inbound channel to force the goroutine to stop.
 			room.CloseInbound()
 		}
-		delete(c.roomCache, room.ID)
+		c.deleteRoomFromCache(room.ID)
 		return nil, err
 	}
 
@@ -61,15 +64,15 @@ func (c *Controller) CreateRoom(ctx context.Context, name string, callbackFn ...
 
 func (c *Controller) ServeRoom(ctx context.Context, roomID string, connection Connection) error {
 	var room *Room
-	room, ok := c.roomCache[roomID]
+	room, ok := c.getRoomFromCache(roomID)
 	if !ok {
 		room, err := c.roomRepo.GetRoom(ctx, roomID)
 		if err != nil {
 			return err
 		}
-		c.roomCache[room.ID] = room
+		c.addRoomToCache(room)
 		if err := c.startRoom(ctx, room); err != nil {
-			delete(c.roomCache, room.ID)
+			c.deleteRoomFromCache(room.ID)
 			return err
 		}
 		go c.Subscribe(ctx, room)
@@ -118,6 +121,25 @@ func (c *Controller) ServeRoom(ctx context.Context, roomID string, connection Co
 	}
 
 	return nil
+}
+
+func (c *Controller) addRoomToCache(room *Room) {
+	c.mu.Lock()
+	c.roomCache[room.ID] = room
+	c.mu.Unlock()
+}
+
+func (c *Controller) deleteRoomFromCache(roomID string) {
+	c.mu.Lock()
+	delete(c.roomCache, roomID)
+	c.mu.Unlock()
+}
+
+func (c *Controller) getRoomFromCache(roomID string) (*Room, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	room, ok := c.roomCache[roomID]
+	return room, ok
 }
 
 func (c *Controller) startRoom(ctx context.Context, room *Room) error {
