@@ -10,10 +10,6 @@ import (
 	"github.com/soggycactus/sharechat.dev/sharechat"
 )
 
-type CreateRoomResponse struct {
-	RoomID string `json:"room_id"`
-}
-
 func NewCreateRoomHandler(controller *sharechat.Controller) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		room, err := controller.CreateRoom(context.Background(), uuid.NewString())
@@ -23,6 +19,6 @@ func NewCreateRoomHandler(controller *sharechat.Controller) func(w http.Response
 			return
 		}
 
-		_ = json.NewEncoder(w).Encode(CreateRoomResponse{RoomID: room.ID})
+		_ = json.NewEncoder(w).Encode(room)
 	}
 }
