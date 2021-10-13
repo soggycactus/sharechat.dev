@@ -102,7 +102,7 @@ func (c *Controller) ServeRoom(ctx context.Context, roomID string, connection Co
 		return err
 	}
 
-	message, err := c.memberRepo.InsertMember(*member)
+	message, err := c.memberRepo.InsertMember(ctx, *member)
 	if err != nil {
 		defer member.StopListen()
 		defer member.StopBroadcast()
@@ -185,7 +185,7 @@ func (c *Controller) Publish(ctx context.Context, member *Member) {
 
 			switch message.Type {
 			case MemberLeft:
-				message, err := c.memberRepo.DeleteMember(*member)
+				message, err := c.memberRepo.DeleteMember(ctx, *member)
 				if err != nil {
 					log.Printf("failed to delete member %s: %v", member.ID, err)
 					return
@@ -196,7 +196,7 @@ func (c *Controller) Publish(ctx context.Context, member *Member) {
 				}
 				return
 			default:
-				if err := c.messageRepo.InsertMessage(message); err != nil {
+				if err := c.messageRepo.InsertMessage(ctx, message); err != nil {
 					log.Printf("failed to insert message: %v", err)
 					member.inbound <- NewSendFailedMessage(*member)
 					break
@@ -216,7 +216,7 @@ func (c *Controller) Subscribe(ctx context.Context, room *Room) {
 	done := make(chan struct{})
 	messages := make(chan Message)
 
-	go c.queue.Subscribe(ctx, room, messages, done)
+	go c.queue.Subscribe(ctx, room.ID, messages, done)
 
 	for {
 		select {
@@ -241,10 +241,14 @@ func (c *Controller) GetRoom(ctx context.Context, roomID string) (*GetRoomRespon
 		return nil, err
 	}
 
-	members, err := c.memberRepo.GetMembersByRoom(roomID)
+	members, err := c.memberRepo.GetMembersByRoom(ctx, roomID)
 	if err != nil {
 		return nil, err
 	}
 
 	return &GetRoomResponse{RoomID: room.ID, RoomName: room.Name, Members: *members}, nil
+}
+
+func (c *Controller) GetMessagesByRoom(ctx context.Context, roomID string) (*[]Message, error) {
+	return c.messageRepo.GetMessagesByRoom(ctx, roomID)
 }

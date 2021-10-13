@@ -15,8 +15,8 @@ type RoomRepository interface {
 }
 
 type Room struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+	ID   string `json:"room_id"`
+	Name string `json:"room_name"`
 	// members holds the local Members of a room
 	members map[string]*Member
 	// inbound forwards Messages to members
