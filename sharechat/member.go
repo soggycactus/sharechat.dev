@@ -9,9 +9,9 @@ import (
 )
 
 type MemberRepository interface {
-	InsertMember(member Member) (*Message, error)
-	GetMembersByRoom(roomID string) (*[]Member, error)
-	DeleteMember(member Member) (*Message, error)
+	InsertMember(ctx context.Context, member Member) (*Message, error)
+	GetMembersByRoom(ctx context.Context, roomID string) (*[]Member, error)
+	DeleteMember(ctx context.Context, member Member) (*Message, error)
 }
 
 type Member struct {
@@ -53,8 +53,8 @@ func NewMember(name string, roomID string, conn Connection) *Member {
 		stopBroadcast:  make(chan struct{}),
 		conn:           conn,
 		callbackListen: func() {},
-		closeInbound:   &sync.Once{},
-		closeOutbound:  &sync.Once{},
+		closeInbound:   new(sync.Once),
+		closeOutbound:  new(sync.Once),
 	}
 }
 

@@ -28,7 +28,7 @@ func (q *Queue) Publish(ctx context.Context, message sharechat.Message) error {
 	}
 }
 
-func (q *Queue) Subscribe(ctx context.Context, room *sharechat.Room, controller chan sharechat.Message, done chan struct{}) {
+func (q *Queue) Subscribe(ctx context.Context, roomID string, controller chan sharechat.Message, done chan struct{}) {
 	for {
 		select {
 		case <-done:

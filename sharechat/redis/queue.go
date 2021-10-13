@@ -21,8 +21,8 @@ func (q *Queue) Publish(ctx context.Context, message sharechat.Message) error {
 	return q.redisClient.Publish(ctx, message.RoomID, message).Err()
 }
 
-func (q *Queue) Subscribe(ctx context.Context, room *sharechat.Room, controller chan sharechat.Message, done chan struct{}) {
-	topic := q.redisClient.Subscribe(ctx, room.ID)
+func (q *Queue) Subscribe(ctx context.Context, roomID string, controller chan sharechat.Message, done chan struct{}) {
+	topic := q.redisClient.Subscribe(ctx, roomID)
 	channel := topic.Channel()
 
 	for {

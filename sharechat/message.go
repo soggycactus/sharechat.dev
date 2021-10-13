@@ -1,6 +1,7 @@
 package sharechat
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -8,8 +9,8 @@ import (
 )
 
 type MessageRepository interface {
-	InsertMessage(message Message) error
-	GetMessagesByRoom(roomID string) (*[]Message, error)
+	InsertMessage(ctx context.Context, message Message) error
+	GetMessagesByRoom(ctx context.Context, roomID string) (*[]Message, error)
 }
 
 type Message struct {

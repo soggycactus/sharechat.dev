@@ -6,6 +6,9 @@ clean:
 unit-test:
 	@go test -race -v ./sharechat/... -tags=unit
 
+e2e-test:
+	@go test -v ./test/e2e/... -tags=e2e
+
 unit-coverage:
 	@go test -coverprofile=unit_coverage.out ./sharechat/... -coverpkg=./sharechat/... -tags=unit
 

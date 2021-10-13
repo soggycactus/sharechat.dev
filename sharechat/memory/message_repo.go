@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"sync"
 
 	"github.com/soggycactus/sharechat.dev/sharechat"
@@ -17,14 +18,14 @@ func NewMessageRepo() *MessageRepo {
 	}
 }
 
-func (m *MessageRepo) InsertMessage(message sharechat.Message) error {
+func (m *MessageRepo) InsertMessage(ctx context.Context, message sharechat.Message) error {
 	m.mu.Lock()
 	m.Messages[message.ID] = message
 	m.mu.Unlock()
 	return nil
 }
 
-func (m *MessageRepo) GetMessagesByRoom(roomID string) (*[]sharechat.Message, error) {
+func (m *MessageRepo) GetMessagesByRoom(ctx context.Context, roomID string) (*[]sharechat.Message, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	messages := make([]sharechat.Message, 0, len(m.Messages))

@@ -16,7 +16,12 @@ func (w *Connection) ReadBytes() ([]byte, error) {
 	if err != nil {
 		var closeErr *websocket.CloseError
 		if errors.As(err, &closeErr) {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+			if websocket.IsUnexpectedCloseError(
+				err,
+				websocket.CloseGoingAway,
+				websocket.CloseAbnormalClosure,
+				websocket.CloseNormalClosure,
+			) {
 				return bytes, err
 			}
 			return bytes, sharechat.ErrExpectedClose
