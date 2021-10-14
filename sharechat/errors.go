@@ -24,6 +24,9 @@ var ErrExpectedClose = errors.New("expected close error")
 // ErrNotListening is returned when a Member is not successfully listening
 var ErrNotListening = errors.New("listen is not ready")
 
+// ErrNotSubscribed is returned when a Queue is not successfully subscribed to a topic
+var ErrNotSubscribed = errors.New("subscribe is not ready")
+
 // ErrNotBroadcasting is returned when a Member is not broadcasting
 var ErrNotBroadcasting = errors.New("broadcast is not ready")
 

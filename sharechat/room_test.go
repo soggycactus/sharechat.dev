@@ -53,42 +53,6 @@ func TestRoomOutbound(t *testing.T) {
 	assert.Equal(t, message.Member.Name, result.Member.Name, "member names should be equal")
 }
 
-func TestRoomSubscribe(t *testing.T) {
-	// doneCh will notify us when the subscribe has been received
-	doneCh := make(chan interface{})
-
-	// Create a test room with a hook that notifies doneCh when a subscribe is received
-	room := sharechat.NewRoom("test").
-		WithCallbackInbound(func(message *sharechat.Message) {
-			doneCh <- *message
-		}).
-		WithNoErrorLogs()
-
-	ctx, fn := context.WithDeadline(context.Background(), time.Now().Add(1*time.Millisecond))
-	defer fn()
-
-	go room.Start(ctx)
-	// wait for the room to be ready
-	err := room.Ready(ctx)
-	if err != nil {
-		t.Fatalf("room is not ready: %v", err)
-	}
-
-	// add a member
-	member := sharechat.NewMember("test", room.ID, nil)
-	subscribeMessage := sharechat.NewMemberJoinedMessage(*member)
-	err = room.Inbound(context.Background(), subscribeMessage)
-	if err != nil {
-		t.Fatalf("could not send message before timeout: %v", err)
-	}
-
-	// receiving from doneCh blocks until the subscribe is complete
-	<-doneCh
-	// it is now safe to make our assertions
-	result := room.Members()[member.ID]
-	assert.Equal(t, member.Name, result.Name, "member names should be equal")
-}
-
 func TestRoomLeave(t *testing.T) {
 	// doneCh will notify us when the subscribe has been received
 	doneCh := make(chan interface{})

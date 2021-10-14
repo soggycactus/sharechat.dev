@@ -28,13 +28,16 @@ func (q *Queue) Publish(ctx context.Context, message sharechat.Message) error {
 	}
 }
 
-func (q *Queue) Subscribe(ctx context.Context, roomID string, controller chan sharechat.Message, done chan struct{}) {
-	for {
-		select {
-		case <-done:
-			return
-		case message := <-q.messages:
-			controller <- message
+func (q *Queue) Subscribe(ctx context.Context, roomID string) (func(chan sharechat.Message, chan struct{}, chan struct{}), error) {
+	return func(controller chan sharechat.Message, done, ready chan struct{}) {
+		ready <- struct{}{}
+		for {
+			select {
+			case <-done:
+				return
+			case message := <-q.messages:
+				controller <- message
+			}
 		}
-	}
+	}, nil
 }

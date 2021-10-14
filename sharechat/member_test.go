@@ -44,15 +44,11 @@ func TestListen(t *testing.T) {
 		t.Fatal("listen should be ready")
 	}
 
-	// subscribe member to the room
-	subscribeMessage := sharechat.NewMemberJoinedMessage(*member)
-	err = room.Inbound(context.Background(), subscribeMessage)
-	if err != nil {
-		t.Fatal("subscribe send should be succeed")
-	}
+	// add member to the room
+	room.AddMember(member)
+	room.Inbound(context.Background(), sharechat.NewMemberJoinedMessage(*member))
 
 	// wait until the member is subscribed before sending a message
-	<-roomDone
 	<-memberDone
 	message := sharechat.NewChatMessage(*member, []byte("hello world!"))
 	err = member.Inbound(context.Background(), message)
