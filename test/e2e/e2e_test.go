@@ -11,23 +11,10 @@ import (
 	"github.com/soggycactus/sharechat.dev/sharechat"
 	"github.com/soggycactus/sharechat.dev/sharechat/memory"
 	"github.com/soggycactus/sharechat.dev/sharechat/mux"
+	"github.com/soggycactus/sharechat.dev/sharechat/redis"
 )
 
-func TestInMemory(t *testing.T) {
-	roomRepo := memory.NewRoomRepo()
-	messageRepo := memory.NewMessageRepo()
-	memberRepo := memory.NewMemberRepo(messageRepo)
-	controller := sharechat.NewController(sharechat.NewControllerInput{
-		RoomRepo:    roomRepo,
-		MessageRepo: messageRepo,
-		MemberRepo:  memberRepo,
-		Queue:       memory.NewQueue(),
-	})
-
-	server := httptest.NewServer(mux.NewServer(controller).Handler)
-	defer server.Close()
-	e := httpexpect.New(t, server.URL)
-
+func RunE2EPath(e *httpexpect.Expect) {
 	response := e.POST("/api/room").WithHeader("Content-Type", "application/json").
 		Expect().
 		Status(http.StatusOK).
@@ -121,4 +108,38 @@ func TestInMemory(t *testing.T) {
 		Status(http.StatusOK).
 		JSON().
 		Array().NotEmpty().Length().Equal(5)
+}
+
+func TestMemory(t *testing.T) {
+	roomRepo := memory.NewRoomRepo()
+	messageRepo := memory.NewMessageRepo()
+	memberRepo := memory.NewMemberRepo(messageRepo)
+	controller := sharechat.NewController(sharechat.NewControllerInput{
+		RoomRepo:    roomRepo,
+		MessageRepo: messageRepo,
+		MemberRepo:  memberRepo,
+		Queue:       redis.NewQueue("0.0.0.0:6379", "", ""),
+	})
+
+	server := httptest.NewServer(mux.NewServer(controller).Handler)
+	defer server.Close()
+	e := httpexpect.New(t, server.URL)
+	RunE2EPath(e)
+}
+
+func TestRedis(t *testing.T) {
+	roomRepo := memory.NewRoomRepo()
+	messageRepo := memory.NewMessageRepo()
+	memberRepo := memory.NewMemberRepo(messageRepo)
+	controller := sharechat.NewController(sharechat.NewControllerInput{
+		RoomRepo:    roomRepo,
+		MessageRepo: messageRepo,
+		MemberRepo:  memberRepo,
+		Queue:       redis.NewQueue("0.0.0.0:6379", "", ""),
+	})
+
+	server := httptest.NewServer(mux.NewServer(controller).Handler)
+	defer server.Close()
+	e := httpexpect.New(t, server.URL)
+	RunE2EPath(e)
 }

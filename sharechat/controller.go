@@ -46,7 +46,8 @@ func (c *Controller) CreateRoom(ctx context.Context, name string, callbackFn ...
 		return nil, err
 	}
 
-	if err := c.roomRepo.InsertRoom(ctx, room); err != nil {
+	err := c.Subscribe(ctx, room)
+	if err != nil {
 		shutdownErr := c.shutdownRoom(ctx, room.ID)
 		if shutdownErr == ErrRoomNotShutdown {
 			// ErrRoomNotShutdown means the room hasn't processed our shutdown request yet.
@@ -57,7 +58,16 @@ func (c *Controller) CreateRoom(ctx context.Context, name string, callbackFn ...
 		return nil, err
 	}
 
-	go c.Subscribe(ctx, room)
+	if err := c.roomRepo.InsertRoom(ctx, room); err != nil {
+		shutdownErr := c.shutdownRoom(ctx, room.ID)
+		if shutdownErr == ErrRoomNotShutdown {
+			// ErrRoomNotShutdown means the room hasn't processed our shutdown request yet.
+			// We close the inbound channel to force the goroutine to stop.
+			room.CloseInbound()
+		}
+		c.deleteRoomFromCache(room.ID)
+		return nil, err
+	}
 
 	return room, nil
 }
@@ -75,7 +85,16 @@ func (c *Controller) ServeRoom(ctx context.Context, roomID string, connection Co
 			c.deleteRoomFromCache(room.ID)
 			return err
 		}
-		go c.Subscribe(ctx, room)
+		if err := c.Subscribe(ctx, room); err != nil {
+			shutdownErr := c.shutdownRoom(ctx, room.ID)
+			if shutdownErr == ErrRoomNotShutdown {
+				// ErrRoomNotShutdown means the room hasn't processed our shutdown request yet.
+				// We close the inbound channel to force the goroutine to stop.
+				room.CloseInbound()
+			}
+			c.deleteRoomFromCache(room.ID)
+			return err
+		}
 	}
 
 	member := NewMember("test", room.ID, connection)
@@ -113,6 +132,8 @@ func (c *Controller) ServeRoom(ctx context.Context, roomID string, connection Co
 	defer func(member *Member) {
 		member.startBroadcast <- struct{}{}
 	}(member)
+
+	room.AddMember(member)
 
 	if err := c.queue.Publish(ctx, *message); err != nil {
 		// At this point the member & joined message have been saved in the database,
@@ -212,22 +233,50 @@ func (c *Controller) Publish(ctx context.Context, member *Member) {
 	}
 }
 
-func (c *Controller) Subscribe(ctx context.Context, room *Room) {
-	done := make(chan struct{})
-	messages := make(chan Message)
-
-	go c.queue.Subscribe(ctx, room.ID, messages, done)
-
-	for {
-		select {
-		case <-room.shutdown:
-			done <- struct{}{}
-			return
-		case message := <-messages:
-			room.inbound <- message
-		}
+func (c *Controller) Subscribe(ctx context.Context, room *Room) error {
+	fn, err := c.queue.Subscribe(ctx, room.ID)
+	if err != nil {
+		return err
 	}
+
+	controller := make(chan Message)
+	done := make(chan struct{})
+	ready := make(chan struct{})
+	go fn(controller, done, ready)
+	<-ready
+	go func(controller chan Message, done, ready chan struct{}) {
+		ready <- struct{}{}
+		for {
+			select {
+			case <-room.shutdown:
+				done <- struct{}{}
+				return
+			case message := <-controller:
+				room.inbound <- message
+			}
+		}
+	}(controller, done, ready)
+	<-ready
+
+	return nil
 }
+
+// func (c *Controller) Subscribe(ctx context.Context, room *Room) {
+// 	done := make(chan struct{})
+// 	messages := make(chan Message)
+//
+// 	go c.queue.Subscribe(ctx, room.ID, messages, done)
+//
+// 	for {
+// 		select {
+// 		case <-room.shutdown:
+// 			done <- struct{}{}
+// 			return
+// 		case message := <-messages:
+// 			room.inbound <- message
+// 		}
+// 	}
+// }
 
 type GetRoomResponse struct {
 	RoomID   string   `json:"room_id"`

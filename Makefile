@@ -3,6 +3,9 @@
 clean:
 	rm -rf ./bin Gopkg.lock *.out
 
+int-test:
+	@go test -race -v ./sharechat/... -tags=int
+
 unit-test:
 	@go test -race -v ./sharechat/... -tags=unit
 

@@ -2,6 +2,7 @@ package sharechat
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -30,6 +31,12 @@ const (
 	MemberLeft   MessageType = "left"
 	SendFailed   MessageType = "failed"
 )
+
+// MarshalBinary implements encoding.BinaryMarshaler
+// This is needed to publish Messages to the Queue
+func (m Message) MarshalBinary() ([]byte, error) {
+	return json.Marshal(m)
+}
 
 func NewChatMessage(member Member, message []byte) Message {
 	return Message{

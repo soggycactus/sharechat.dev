@@ -17,8 +17,6 @@ type RoomRepository interface {
 type Room struct {
 	ID   string `json:"room_id"`
 	Name string `json:"room_name"`
-	// members holds the local Members of a room
-	members map[string]*Member
 	// inbound forwards Messages to members
 	inbound chan Message
 	// shutdown stops the Room
@@ -33,13 +31,16 @@ type Room struct {
 	callbackInbound func(*Message)
 	// flag used in tests to turn off error logging
 	logErrors bool
+	// sync.Mutex to make members thread-safe
+	mu *sync.Mutex
+	// members holds the local Members of a room
+	members map[string]*Member
 }
 
 func NewRoom(name string) *Room {
 	return &Room{
 		ID:              uuid.New().String(),
 		Name:            name,
-		members:         make(map[string]*Member),
 		inbound:         make(chan Message),
 		shutdown:        make(chan struct{}),
 		ready:           make(chan struct{}),
@@ -47,10 +48,20 @@ func NewRoom(name string) *Room {
 		closeInbound:    new(sync.Once),
 		callbackInbound: func(*Message) {},
 		logErrors:       true,
+		mu:              new(sync.Mutex),
+		members:         make(map[string]*Member),
 	}
 }
 
+func (r *Room) AddMember(member *Member) {
+	r.mu.Lock()
+	r.members[member.ID] = member
+	r.mu.Unlock()
+}
+
 func (r *Room) Members() map[string]*Member {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	return r.members
 }
 
@@ -64,17 +75,12 @@ func (r *Room) Start(ctx context.Context) {
 				return
 			}
 			switch message.Type {
-			case Chat:
-				for _, member := range r.members {
-					r.notifyMember(ctx, message, *member)
-				}
-			case MemberJoined:
-				r.members[message.Member.ID] = &message.Member
-				for _, member := range r.members {
-					r.notifyMember(ctx, message, *member)
-				}
 			case MemberLeft:
 				delete(r.members, message.Member.ID)
+				for _, member := range r.members {
+					r.notifyMember(ctx, message, *member)
+				}
+			default:
 				for _, member := range r.members {
 					r.notifyMember(ctx, message, *member)
 				}
