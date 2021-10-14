@@ -261,23 +261,6 @@ func (c *Controller) Subscribe(ctx context.Context, room *Room) error {
 	return nil
 }
 
-// func (c *Controller) Subscribe(ctx context.Context, room *Room) {
-// 	done := make(chan struct{})
-// 	messages := make(chan Message)
-//
-// 	go c.queue.Subscribe(ctx, room.ID, messages, done)
-//
-// 	for {
-// 		select {
-// 		case <-room.shutdown:
-// 			done <- struct{}{}
-// 			return
-// 		case message := <-messages:
-// 			room.inbound <- message
-// 		}
-// 	}
-// }
-
 type GetRoomResponse struct {
 	RoomID   string   `json:"room_id"`
 	RoomName string   `json:"room_name"`
