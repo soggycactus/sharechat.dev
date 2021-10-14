@@ -74,12 +74,13 @@ func (c *Controller) CreateRoom(ctx context.Context, name string, callbackFn ...
 
 func (c *Controller) ServeRoom(ctx context.Context, roomID string, connection Connection) error {
 	var room *Room
-	room, ok := c.getRoomFromCache(roomID)
+	cacheResult, ok := c.getRoomFromCache(roomID)
 	if !ok {
-		room, err := c.roomRepo.GetRoom(ctx, roomID)
+		repoResult, err := c.roomRepo.GetRoom(ctx, roomID)
 		if err != nil {
 			return err
 		}
+		room = repoResult
 		c.addRoomToCache(room)
 		if err := c.startRoom(ctx, room); err != nil {
 			c.deleteRoomFromCache(room.ID)
@@ -95,6 +96,8 @@ func (c *Controller) ServeRoom(ctx context.Context, roomID string, connection Co
 			c.deleteRoomFromCache(room.ID)
 			return err
 		}
+	} else {
+		room = cacheResult
 	}
 
 	member := NewMember("test", room.ID, connection)

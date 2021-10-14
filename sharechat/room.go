@@ -15,8 +15,8 @@ type RoomRepository interface {
 }
 
 type Room struct {
-	ID   string `json:"room_id"`
-	Name string `json:"room_name"`
+	ID   string `json:"room_id" db:"room_id"`
+	Name string `json:"room_name" db:"room_name"`
 	// inbound forwards Messages to members
 	inbound chan Message
 	// shutdown stops the Room
@@ -53,6 +53,20 @@ func NewRoom(name string) *Room {
 	}
 }
 
+// SetupRoom creates the necessary in-memory data structures needed to operate the room.
+// This is called inside of Repositories that fetch the room from a database.
+func SetupRoom(room *Room) {
+	room.inbound = make(chan Message)
+	room.shutdown = make(chan struct{})
+	room.ready = make(chan struct{})
+	room.stopped = make(chan struct{})
+	room.closeInbound = new(sync.Once)
+	room.callbackInbound = func(*Message) {}
+	room.logErrors = true
+	room.mu = new(sync.Mutex)
+	room.members = make(map[string]*Member)
+}
+
 func (r *Room) AddMember(member *Member) {
 	r.mu.Lock()
 	r.members[member.ID] = member
@@ -76,7 +90,7 @@ func (r *Room) Start(ctx context.Context) {
 			}
 			switch message.Type {
 			case MemberLeft:
-				delete(r.members, message.Member.ID)
+				delete(r.members, message.MemberID)
 				for _, member := range r.members {
 					r.notifyMember(ctx, message, *member)
 				}

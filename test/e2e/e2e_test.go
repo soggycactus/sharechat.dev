@@ -3,18 +3,22 @@
 package e2e
 
 import (
+	"context"
+	"database/sql"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/gavv/httpexpect"
+	"github.com/pressly/goose/v3"
 	"github.com/soggycactus/sharechat.dev/sharechat"
 	"github.com/soggycactus/sharechat.dev/sharechat/memory"
 	"github.com/soggycactus/sharechat.dev/sharechat/mux"
+	"github.com/soggycactus/sharechat.dev/sharechat/postgres"
 	"github.com/soggycactus/sharechat.dev/sharechat/redis"
 )
 
-func RunE2EPath(e *httpexpect.Expect) {
+func ServeNewRoom(e *httpexpect.Expect) {
 	response := e.POST("/api/room").WithHeader("Content-Type", "application/json").
 		Expect().
 		Status(http.StatusOK).
@@ -25,7 +29,11 @@ func RunE2EPath(e *httpexpect.Expect) {
 	roomID := response.Value("room_id").NotNull().String()
 	response.Value("room_name").NotNull().String()
 
-	ws1 := e.GET("/api/serve/{roomID}").WithPath("roomID", roomID.Raw()).
+	ServeRoom(e, roomID.Raw())
+}
+
+func ServeRoom(e *httpexpect.Expect, roomID string) {
+	ws1 := e.GET("/api/serve/{roomID}").WithPath("roomID", roomID).
 		WithWebsocketUpgrade().
 		Expect().
 		Status(http.StatusSwitchingProtocols).
@@ -47,7 +55,7 @@ func RunE2EPath(e *httpexpect.Expect) {
 		ValueEqual("type", sharechat.Chat)
 
 	// add another connection
-	ws2 := e.GET("/api/serve/{roomID}").WithPath("roomID", roomID.Raw()).
+	ws2 := e.GET("/api/serve/{roomID}").WithPath("roomID", roomID).
 		WithWebsocketUpgrade().
 		Expect().
 		Status(http.StatusSwitchingProtocols).
@@ -64,7 +72,7 @@ func RunE2EPath(e *httpexpect.Expect) {
 		JSON().
 		Object().
 		ValueEqual("type", sharechat.MemberJoined).
-		Value("member").Object().Value("id").String().Raw()
+		Value("member_id").String().Raw()
 
 	ws2.WriteText("hello ws1!").
 		Expect().
@@ -90,7 +98,7 @@ func RunE2EPath(e *httpexpect.Expect) {
 		ValueEqual("type", sharechat.MemberLeft)
 
 	// get the Room details from the API
-	roomResponse := e.GET("/api/room/{roomID}").WithPath("roomID", roomID.Raw()).
+	roomResponse := e.GET("/api/room/{roomID}").WithPath("roomID", roomID).
 		Expect().
 		Status(http.StatusOK).
 		JSON().
@@ -103,7 +111,7 @@ func RunE2EPath(e *httpexpect.Expect) {
 	members.Element(0).Object().ValueEqual("id", ws2ID)
 
 	// a total of 5 messages were sent, assert they are all recorded
-	e.GET("/api/room/{roomID}/messages").WithPath("roomID", roomID.Raw()).
+	e.GET("/api/room/{roomID}/messages").WithPath("roomID", roomID).
 		Expect().
 		Status(http.StatusOK).
 		JSON().
@@ -124,13 +132,26 @@ func TestMemory(t *testing.T) {
 	server := httptest.NewServer(mux.NewServer(controller).Handler)
 	defer server.Close()
 	e := httpexpect.New(t, server.URL)
-	RunE2EPath(e)
+	ServeNewRoom(e)
 }
 
-func TestRedis(t *testing.T) {
-	roomRepo := memory.NewRoomRepo()
-	messageRepo := memory.NewMessageRepo()
-	memberRepo := memory.NewMemberRepo(messageRepo)
+func TestServeNewRoom(t *testing.T) {
+	dbstring := "user=user dbname=public password=password host=0.0.0.0 sslmode=disable"
+	driver := "postgres"
+
+	db, err := sql.Open(driver, dbstring)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = goose.Up(db, "../../migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	roomRepo := postgres.NewRoomRepository(db, "postgres")
+	messageRepo := postgres.NewMessageRepository(db, "postgres")
+	memberRepo := postgres.NewMemberRepository(db, "postgres")
 	controller := sharechat.NewController(sharechat.NewControllerInput{
 		RoomRepo:    roomRepo,
 		MessageRepo: messageRepo,
@@ -141,5 +162,42 @@ func TestRedis(t *testing.T) {
 	server := httptest.NewServer(mux.NewServer(controller).Handler)
 	defer server.Close()
 	e := httpexpect.New(t, server.URL)
-	RunE2EPath(e)
+	ServeNewRoom(e)
+}
+
+func TestServeExistingRoom(t *testing.T) {
+	dbstring := "user=user dbname=public password=password host=0.0.0.0 sslmode=disable"
+	driver := "postgres"
+
+	db, err := sql.Open(driver, dbstring)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = goose.Up(db, "../../migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	roomRepo := postgres.NewRoomRepository(db, "postgres")
+	messageRepo := postgres.NewMessageRepository(db, "postgres")
+	memberRepo := postgres.NewMemberRepository(db, "postgres")
+	controller := sharechat.NewController(sharechat.NewControllerInput{
+		RoomRepo:    roomRepo,
+		MessageRepo: messageRepo,
+		MemberRepo:  memberRepo,
+		Queue:       redis.NewQueue("0.0.0.0:6379", "", ""),
+	})
+
+	server := httptest.NewServer(mux.NewServer(controller).Handler)
+	defer server.Close()
+	e := httpexpect.New(t, server.URL)
+
+	existingRoom := sharechat.NewRoom("existing")
+	err = roomRepo.InsertRoom(context.Background(), existingRoom)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ServeRoom(e, existingRoom.ID)
 }

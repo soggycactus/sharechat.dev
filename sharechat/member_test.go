@@ -67,8 +67,8 @@ func TestListen(t *testing.T) {
 	assert.Equal(t, message.Type, result.Type, "message type should be equal")
 	assert.Equal(t, message.Sent, result.Sent, "message timestamp should be equal")
 	assert.Equal(t, message.RoomID, result.RoomID, "message room ids should be equal")
-	assert.Equal(t, message.Member.ID, result.Member.ID, "member IDs should be equal")
-	assert.Equal(t, message.Member.Name, result.Member.Name, "member names should be equal")
+	assert.Equal(t, message.MemberID, result.MemberID, "member IDs should be equal")
+	assert.Equal(t, message.MemberName, result.MemberName, "member names should be equal")
 }
 
 func TestBroadcast(t *testing.T) {

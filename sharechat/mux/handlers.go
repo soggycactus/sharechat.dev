@@ -84,7 +84,6 @@ func NewServeRoomHandler(controller *sharechat.Controller, upgrader websocket.Up
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			log.Printf("could not upgrade connection: %v", err)
-			http.Error(w, "could not upgrade connection", http.StatusInternalServerError)
 			return
 		}
 

@@ -1,5 +1,8 @@
 .PHONY: clean test
 
+build: 
+	go build -ldflags="-s -w" -o bin/sharechat cmd/sharechat/main.go
+
 clean:
 	rm -rf ./bin Gopkg.lock *.out
 
@@ -20,3 +23,12 @@ view-coverage: unit-coverage
 
 lint:
 	@golangci-lint run
+
+migration:
+	goose -dir=migrations create $(file) $(dialect)
+
+goose-up:
+	goose -dir=migrations postgres "user=user dbname=public password=password host=localhost sslmode=disable" up
+
+goose-down:
+	goose -dir=migrations postgres "user=user dbname=public password=password host=localhost sslmode=disable" down
