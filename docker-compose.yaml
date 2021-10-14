@@ -7,6 +7,11 @@ services:
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=password
       - POSTGRES_DB=public
+    healthcheck:
+      test: ["CMD", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     ports:
       - 5432:5432
     volumes:
@@ -24,6 +29,22 @@ services:
       retries: 5
     volumes:
       - redis:/var/lib/redis
+
+  sharechat:
+    depends_on:
+      - postgres
+      - redis
+    build: . 
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASS: password
+      POSTGRES_HOST: postgres
+      POSTGRES_NAME: public
+      REDIS_USER: ""
+      REDIS_PASS: ""
+      REDIS_HOST: redis:6379
+    ports:
+      - 8080:8080
 
 
 volumes: 

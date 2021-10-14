@@ -40,6 +40,6 @@ func TestQueue(t *testing.T) {
 	}
 
 	message := <-controller
-	assert.Equal(t, member.ID, message.Member.ID, "message should have correct Member")
+	assert.Equal(t, member.ID, message.MemberID, "message should have correct Member")
 	assert.Equal(t, "hello world!", message.Message, "message content should be same")
 }

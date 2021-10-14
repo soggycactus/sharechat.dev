@@ -9,7 +9,7 @@ import (
 	"github.com/soggycactus/sharechat.dev/sharechat"
 )
 
-var upgrader = websocket.Upgrader{HandshakeTimeout: 1024}
+var upgrader = websocket.Upgrader{HandshakeTimeout: 5 * time.Second}
 
 func NewServer(controller *sharechat.Controller) *http.Server {
 	createRoom := NewCreateRoomHandler(controller)

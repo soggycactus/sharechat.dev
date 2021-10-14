@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/soggycactus/sharechat.dev/sharechat"
 )
@@ -22,6 +23,7 @@ func NewMemberRepo(messageRepo sharechat.MessageRepository) *MemberRepo {
 func (m *MemberRepo) InsertMember(ctx context.Context, member sharechat.Member) (*sharechat.Message, error) {
 	m.Members[member.ID] = member
 	message := sharechat.NewMemberJoinedMessage(member)
+	message.Sent = time.Now()
 	if err := m.messageRepo.InsertMessage(ctx, message); err != nil {
 		delete(m.Members, member.ID)
 		return nil, errors.New("failed to insert member")
@@ -43,6 +45,7 @@ func (m *MemberRepo) GetMembersByRoom(ctx context.Context, roomID string) (*[]sh
 
 func (m *MemberRepo) DeleteMember(ctx context.Context, member sharechat.Member) (*sharechat.Message, error) {
 	message := sharechat.NewMemberLeftMessage(member)
+	message.Sent = time.Now()
 	if err := m.messageRepo.InsertMessage(ctx, message); err != nil {
 		return nil, errors.New("failed to delete member")
 	}

@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/soggycactus/sharechat.dev/sharechat"
 )
@@ -20,6 +21,7 @@ func NewMessageRepo() *MessageRepo {
 
 func (m *MessageRepo) InsertMessage(ctx context.Context, message sharechat.Message) error {
 	m.mu.Lock()
+	message.Sent = time.Now()
 	m.Messages[message.ID] = message
 	m.mu.Unlock()
 	return nil
