@@ -9,9 +9,7 @@ A simple chat server that mimics IRC chat rooms:
 # TODO:
 
 - add ability to delete rooms
-- implement short hasing for the room ID
+- implement short hashing for the room ID
 - implement algorithim to generate random username
-- integrate Postgres
-- integrate Redis
 - add expiration to Rooms
-- have Rooms clean themselves up if no members after certain time period
+- have Rooms clean themselves up if no members are connected after certain time period
