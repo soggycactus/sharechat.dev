@@ -9,13 +9,8 @@ import (
 	"github.com/soggycactus/sharechat.dev/sharechat"
 )
 
-func NewQueue(host, user, password string) *Queue {
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     host,
-		Username: user,
-		Password: password,
-	})
-	return &Queue{redisClient: redisClient}
+func NewQueue(client redis.Client) *Queue {
+	return &Queue{redisClient: &client}
 }
 
 type Queue struct {
