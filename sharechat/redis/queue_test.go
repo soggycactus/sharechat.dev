@@ -7,13 +7,19 @@ import (
 	"testing"
 	"time"
 
+	redisv8 "github.com/go-redis/redis/v8"
 	"github.com/soggycactus/sharechat.dev/sharechat"
 	"github.com/soggycactus/sharechat.dev/sharechat/redis"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestQueue(t *testing.T) {
-	queue := redis.NewQueue("0.0.0.0:6379", "", "")
+	client := redisv8.NewClient(&redisv8.Options{
+		Addr:     "0.0.0.0:6379",
+		Username: "",
+		Password: "",
+	})
+	queue := redis.NewQueue(*client)
 	ctx, fn := context.WithDeadline(context.Background(), time.Now().Add(10*time.Second))
 	defer fn()
 

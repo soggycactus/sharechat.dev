@@ -18,6 +18,7 @@ func NewServer(controller *sharechat.Controller) *http.Server {
 	getMessages := NewGetRoomMessagesHandler(controller)
 
 	router := mux.NewRouter()
+	router.HandleFunc("/api/healthz", controller.Healthcheck).Methods(http.MethodGet)
 	router.HandleFunc("/api/room", createRoom).Methods(http.MethodPost)
 	router.HandleFunc("/api/room/{room}/messages", getMessages).Methods(http.MethodGet)
 	router.HandleFunc("/api/room/{room}", getRoom).Methods(http.MethodGet)

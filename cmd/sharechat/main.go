@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	netHttp "net/http"
 	"os"
 
+	redisv8 "github.com/go-redis/redis/v8"
 	"github.com/pressly/goose/v3"
 	"github.com/soggycactus/sharechat.dev/sharechat"
 	"github.com/soggycactus/sharechat.dev/sharechat/http"
@@ -18,11 +20,12 @@ func main() {
 	dbPass := os.Getenv("POSTGRES_PASS")
 	dbHost := os.Getenv("POSTGRES_HOST")
 	dbName := os.Getenv("POSTGRES_NAME")
+	dbPort := os.Getenv("POSTGRES_PORT")
 	redisUser := os.Getenv("REDIS_USER")
 	redisPass := os.Getenv("REDIS_PASS")
 	redisHost := os.Getenv("REDIS_HOST")
 
-	dbstring := fmt.Sprintf("user=%v dbname=%v password=%v host=%v sslmode=disable", dbUser, dbName, dbPass, dbHost)
+	dbstring := fmt.Sprintf("user=%v dbname=%v password=%v host=%v port=%v sslmode=disable", dbUser, dbName, dbPass, dbHost, dbPort)
 	driver := "postgres"
 
 	db, err := sql.Open(driver, dbstring)
@@ -35,6 +38,12 @@ func main() {
 		log.Fatal(err)
 	}
 
+	redisClient := redisv8.NewClient(&redisv8.Options{
+		Addr:     redisHost,
+		Username: redisUser,
+		Password: redisPass,
+	})
+
 	roomRepo := postgres.NewRoomRepository(db, "postgres")
 	messageRepo := postgres.NewMessageRepository(db, "postgres")
 	memberRepo := postgres.NewMemberRepository(db, "postgres")
@@ -42,7 +51,20 @@ func main() {
 		RoomRepo:    roomRepo,
 		MessageRepo: messageRepo,
 		MemberRepo:  memberRepo,
-		Queue:       redis.NewQueue(redisHost, redisUser, redisPass),
+		Queue:       redis.NewQueue(*redisClient),
+		Healthcheck: func(rw netHttp.ResponseWriter, r *netHttp.Request) {
+			if err := db.PingContext(r.Context()); err != nil {
+				rw.WriteHeader(netHttp.StatusServiceUnavailable)
+				return
+			}
+
+			if err := redisClient.Ping(r.Context()).Err(); err != nil {
+				rw.WriteHeader(netHttp.StatusServiceUnavailable)
+				return
+			}
+
+			rw.WriteHeader(netHttp.StatusOK)
+		},
 	})
 
 	server := http.NewServer(controller)

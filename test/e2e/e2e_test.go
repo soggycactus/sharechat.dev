@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/gavv/httpexpect"
+	redisv8 "github.com/go-redis/redis/v8"
 	"github.com/pressly/goose/v3"
 	"github.com/soggycactus/sharechat.dev/sharechat"
 	sharechathttp "github.com/soggycactus/sharechat.dev/sharechat/http"
@@ -126,7 +127,7 @@ func TestMemory(t *testing.T) {
 		RoomRepo:    roomRepo,
 		MessageRepo: messageRepo,
 		MemberRepo:  memberRepo,
-		Queue:       redis.NewQueue("0.0.0.0:6379", "", ""),
+		Queue:       memory.NewQueue(),
 	})
 
 	server := httptest.NewServer(sharechathttp.NewServer(controller).Handler)
@@ -149,6 +150,12 @@ func TestServeNewRoom(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	redisClient := redisv8.NewClient(&redisv8.Options{
+		Addr:     "0.0.0.0:6379",
+		Username: "",
+		Password: "",
+	})
+
 	roomRepo := postgres.NewRoomRepository(db, "postgres")
 	messageRepo := postgres.NewMessageRepository(db, "postgres")
 	memberRepo := postgres.NewMemberRepository(db, "postgres")
@@ -156,7 +163,7 @@ func TestServeNewRoom(t *testing.T) {
 		RoomRepo:    roomRepo,
 		MessageRepo: messageRepo,
 		MemberRepo:  memberRepo,
-		Queue:       redis.NewQueue("0.0.0.0:6379", "", ""),
+		Queue:       redis.NewQueue(*redisClient),
 	})
 
 	server := httptest.NewServer(sharechathttp.NewServer(controller).Handler)
@@ -179,6 +186,12 @@ func TestServeExistingRoom(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	redisClient := redisv8.NewClient(&redisv8.Options{
+		Addr:     "0.0.0.0:6379",
+		Username: "",
+		Password: "",
+	})
+
 	roomRepo := postgres.NewRoomRepository(db, "postgres")
 	messageRepo := postgres.NewMessageRepository(db, "postgres")
 	memberRepo := postgres.NewMemberRepository(db, "postgres")
@@ -186,7 +199,7 @@ func TestServeExistingRoom(t *testing.T) {
 		RoomRepo:    roomRepo,
 		MessageRepo: messageRepo,
 		MemberRepo:  memberRepo,
-		Queue:       redis.NewQueue("0.0.0.0:6379", "", ""),
+		Queue:       redis.NewQueue(*redisClient),
 	})
 
 	server := httptest.NewServer(sharechathttp.NewServer(controller).Handler)

@@ -3,6 +3,7 @@ package sharechat
 import (
 	"context"
 	"log"
+	"net/http"
 	"sync"
 )
 
@@ -11,6 +12,7 @@ type NewControllerInput struct {
 	MemberRepo  MemberRepository
 	MessageRepo MessageRepository
 	Queue       Queue
+	Healthcheck func(http.ResponseWriter, *http.Request)
 }
 
 func NewController(input NewControllerInput) *Controller {
@@ -19,6 +21,7 @@ func NewController(input NewControllerInput) *Controller {
 		memberRepo:  input.MemberRepo,
 		messageRepo: input.MessageRepo,
 		queue:       input.Queue,
+		Healthcheck: input.Healthcheck,
 		mu:          new(sync.Mutex),
 		roomCache:   make(map[string]*Room),
 	}
@@ -29,6 +32,8 @@ type Controller struct {
 	memberRepo  MemberRepository
 	messageRepo MessageRepository
 	queue       Queue
+
+	Healthcheck func(http.ResponseWriter, *http.Request)
 
 	mu        *sync.Mutex
 	roomCache map[string]*Room
