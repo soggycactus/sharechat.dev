@@ -1,4 +1,4 @@
-package mux
+package http
 
 import (
 	"errors"

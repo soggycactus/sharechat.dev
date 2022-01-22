@@ -23,8 +23,6 @@ type Room struct {
 	shutdown chan struct{}
 	// ready is used to communicate the Start goroutine is running
 	ready chan struct{}
-	// stopped is used to communicate the Start goroutine has finished
-	stopped chan struct{}
 	// sync.Once to close inbound
 	closeInbound *sync.Once
 	// callbackInbound is a hook for synchronizing goroutines in tests.
@@ -44,7 +42,6 @@ func NewRoom(name string) *Room {
 		inbound:         make(chan Message),
 		shutdown:        make(chan struct{}),
 		ready:           make(chan struct{}),
-		stopped:         make(chan struct{}),
 		closeInbound:    new(sync.Once),
 		callbackInbound: func(*Message) {},
 		logErrors:       true,
@@ -59,7 +56,6 @@ func SetupRoom(room *Room) {
 	room.inbound = make(chan Message)
 	room.shutdown = make(chan struct{})
 	room.ready = make(chan struct{})
-	room.stopped = make(chan struct{})
 	room.closeInbound = new(sync.Once)
 	room.callbackInbound = func(*Message) {}
 	room.logErrors = true
@@ -83,31 +79,26 @@ func (r *Room) Members() map[string]*Member {
 func (r *Room) Start(ctx context.Context) {
 	r.ready <- struct{}{}
 	for {
-		select {
-		case message, ok := <-r.inbound:
-			if !ok {
-				return
-			}
-			switch message.Type {
-			case MemberLeft:
-				delete(r.members, message.MemberID)
-				for _, member := range r.members {
-					r.notifyMember(ctx, message, *member)
-				}
-			default:
-				for _, member := range r.members {
-					r.notifyMember(ctx, message, *member)
-				}
-			}
-			r.callbackInbound(&message)
-		case <-r.shutdown:
+		message, ok := <-r.inbound
+		if !ok {
 			for _, member := range r.members {
-				member.stopListen <- struct{}{}
-				member.stopBroadcast <- struct{}{}
+				member.CloseInbound()
+				member.StopBroadcast()
 			}
-			defer func() { r.stopped <- struct{}{} }()
 			return
 		}
+		switch message.Type {
+		case MemberLeft:
+			delete(r.members, message.MemberID)
+			for _, member := range r.members {
+				r.notifyMember(ctx, message, *member)
+			}
+		default:
+			for _, member := range r.members {
+				r.notifyMember(ctx, message, *member)
+			}
+		}
+		r.callbackInbound(&message)
 	}
 }
 

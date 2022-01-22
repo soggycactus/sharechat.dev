@@ -19,12 +19,12 @@ func NewMessageRepo() *MessageRepo {
 	}
 }
 
-func (m *MessageRepo) InsertMessage(ctx context.Context, message sharechat.Message) error {
+func (m *MessageRepo) InsertMessage(ctx context.Context, message sharechat.Message) (*sharechat.Message, error) {
 	m.mu.Lock()
 	message.Sent = time.Now()
 	m.Messages[message.ID] = message
 	m.mu.Unlock()
-	return nil
+	return &message, nil
 }
 
 func (m *MessageRepo) GetMessagesByRoom(ctx context.Context, roomID string) (*[]sharechat.Message, error) {
