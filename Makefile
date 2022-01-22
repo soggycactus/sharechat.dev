@@ -2,6 +2,7 @@
 
 build: 
 	go build -ldflags="-s -w" -o bin/sharechat cmd/sharechat/main.go
+	go build -ldflags="-s -w" -o bin/memorychat cmd/memorychat/main.go
 
 clean:
 	rm -rf ./bin Gopkg.lock *.out

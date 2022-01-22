@@ -47,6 +47,6 @@ func main() {
 
 	server := http.NewServer(controller)
 
-	log.Print("starting server on port 8080")
+	log.Print("starting sharechat server on port 8080")
 	log.Fatal(server.ListenAndServe())
 }
