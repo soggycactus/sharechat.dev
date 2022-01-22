@@ -25,11 +25,11 @@ func GetDialect() SQLDialect {
 // SetDialect sets the SQLDialect
 func SetDialect(d string) error {
 	switch d {
-	case "postgres":
+	case "postgres", "pgx":
 		dialect = &PostgresDialect{}
 	case "mysql":
 		dialect = &MySQLDialect{}
-	case "sqlite3":
+	case "sqlite3", "sqlite":
 		dialect = &Sqlite3Dialect{}
 	case "mssql":
 		dialect = &SqlServerDialect{}

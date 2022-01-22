@@ -10,8 +10,8 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jmoiron/sqlx v1.3.4
-	github.com/lib/pq v1.10.3
-	github.com/pressly/goose/v3 v3.2.0
+	github.com/lib/pq v1.10.4
+	github.com/pressly/goose/v3 v3.5.0
 	github.com/stretchr/testify v1.7.0
 )
 
@@ -42,6 +42,6 @@ require (
 	github.com/yudai/gojsondiff v1.0.0 // indirect
 	github.com/yudai/golcs v0.0.0-20170316035057-ecda9a501e82 // indirect
 	github.com/yudai/pp v2.0.1+incompatible // indirect
-	golang.org/x/net v0.0.0-20211008194852-3b03d305991f // indirect
+	golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
