@@ -8,7 +8,7 @@ import (
 
 	"github.com/pressly/goose/v3"
 	"github.com/soggycactus/sharechat.dev/sharechat"
-	"github.com/soggycactus/sharechat.dev/sharechat/mux"
+	"github.com/soggycactus/sharechat.dev/sharechat/http"
 	"github.com/soggycactus/sharechat.dev/sharechat/postgres"
 	"github.com/soggycactus/sharechat.dev/sharechat/redis"
 )
@@ -45,7 +45,7 @@ func main() {
 		Queue:       redis.NewQueue(redisHost, redisUser, redisPass),
 	})
 
-	server := mux.NewServer(controller)
+	server := http.NewServer(controller)
 
 	log.Print("starting server on port 8080")
 	log.Fatal(server.ListenAndServe())

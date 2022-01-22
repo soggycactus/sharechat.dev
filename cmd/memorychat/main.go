@@ -4,8 +4,8 @@ import (
 	"log"
 
 	"github.com/soggycactus/sharechat.dev/sharechat"
+	"github.com/soggycactus/sharechat.dev/sharechat/http"
 	"github.com/soggycactus/sharechat.dev/sharechat/memory"
-	"github.com/soggycactus/sharechat.dev/sharechat/mux"
 )
 
 func main() {
@@ -19,7 +19,7 @@ func main() {
 		Queue:       memory.NewQueue(),
 	})
 
-	server := mux.NewServer(controller)
+	server := http.NewServer(controller)
 
 	log.Print("starting server on port 8080")
 	log.Fatal(server.ListenAndServe())
