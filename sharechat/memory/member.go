@@ -24,11 +24,12 @@ func (m *MemberRepo) InsertMember(ctx context.Context, member sharechat.Member) 
 	m.Members[member.ID] = member
 	message := sharechat.NewMemberJoinedMessage(member)
 	message.Sent = time.Now()
-	if err := m.messageRepo.InsertMessage(ctx, message); err != nil {
+	result, err := m.messageRepo.InsertMessage(ctx, message)
+	if err != nil {
 		delete(m.Members, member.ID)
 		return nil, errors.New("failed to insert member")
 	}
-	return &message, nil
+	return result, nil
 }
 
 func (m *MemberRepo) GetMembersByRoom(ctx context.Context, roomID string) (*[]sharechat.Member, error) {
@@ -46,10 +47,11 @@ func (m *MemberRepo) GetMembersByRoom(ctx context.Context, roomID string) (*[]sh
 func (m *MemberRepo) DeleteMember(ctx context.Context, member sharechat.Member) (*sharechat.Message, error) {
 	message := sharechat.NewMemberLeftMessage(member)
 	message.Sent = time.Now()
-	if err := m.messageRepo.InsertMessage(ctx, message); err != nil {
+	result, err := m.messageRepo.InsertMessage(ctx, message)
+	if err != nil {
 		return nil, errors.New("failed to delete member")
 	}
 	delete(m.Members, member.ID)
 
-	return &message, nil
+	return result, nil
 }

@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/pressly/goose/v3"
 	"github.com/soggycactus/sharechat.dev/sharechat"
@@ -56,6 +57,8 @@ func TestAll(t *testing.T) {
 
 	memberRepo := postgres.NewMemberRepository(db, "postgres")
 	member := sharechat.NewMember("test", room.ID, nil)
+
+	insertTime := time.Now()
 	joinedMessage, err := memberRepo.InsertMember(ctx, *member)
 	if err != nil {
 		t.Fatal(err)
@@ -63,6 +66,8 @@ func TestAll(t *testing.T) {
 
 	assert.Equal(t, member.ID, joinedMessage.MemberID, "inserted message should have member ID")
 	assert.Equal(t, sharechat.MemberJoined, joinedMessage.Type, "inserted message should be member joined type")
+	assert.Equal(t, member.Name, joinedMessage.MemberName, "joined message should equal member name")
+	assert.True(t, insertTime.Before(joinedMessage.Sent), "joined message should have more recent timestamp")
 
 	members, err := memberRepo.GetMembersByRoom(ctx, room.ID)
 	if err != nil {
@@ -80,16 +85,31 @@ func TestAll(t *testing.T) {
 
 	messageRepo := postgres.NewMessageRepository(db, "postgres")
 
+	insertTime = time.Now()
 	chatMessage := sharechat.NewChatMessage(*member, []byte("hello world!"))
-	err = messageRepo.InsertMessage(ctx, chatMessage)
+	result, err := messageRepo.InsertMessage(ctx, chatMessage)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	assert.Equal(t, chatMessage.ID, result.ID)
+	assert.Equal(t, chatMessage.MemberID, result.MemberID)
+	assert.Equal(t, chatMessage.Message, result.Message)
+	assert.Equal(t, chatMessage.MemberName, result.MemberName)
+	assert.Equal(t, chatMessage.RoomID, result.RoomID)
+	assert.Equal(t, chatMessage.Type, result.Type)
+	assert.True(t, insertTime.Before(result.Sent), "message timestamp should be more recent")
+
+	deleteTime := time.Now()
 	deletedMessage, err := memberRepo.DeleteMember(ctx, *member)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	assert.Equal(t, member.ID, deletedMessage.MemberID, "inserted message should have member ID")
+	assert.Equal(t, sharechat.MemberLeft, deletedMessage.Type, "inserted message should be member joined type")
+	assert.Equal(t, member.Name, deletedMessage.MemberName, "deleted message should have equal member name")
+	assert.True(t, deleteTime.Before(deletedMessage.Sent), "deleted message should have more recent timestamp")
 
 	messages, err := messageRepo.GetMessagesByRoom(ctx, room.ID)
 

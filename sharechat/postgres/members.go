@@ -12,12 +12,14 @@ import (
 const (
 	InsertMemberQuery = `
 	INSERT INTO members (member_id, name, room_id) VALUES (%v, %v, %v); 
-	INSERT INTO messages (message_id, type, message, room_id, member_id) VALUES (%v, %v, %v, %v, %v);
+	INSERT INTO messages (message_id, type, message, room_id, member_id) VALUES (%v, %v, %v, %v, %v)
+	RETURNING message_id, type, message, room_id, member_id, sent;
 	`
 	GetMembersByRoomQuery = "SELECT member_id, name, room_id FROM members WHERE room_id=$1 AND is_deleted=false"
 	DeleteMemberQuery     = `
 	UPDATE members SET is_deleted=true WHERE member_id=%v;
-	INSERT INTO messages (message_id, type, message, room_id, member_id) VALUES (%v, %v, %v, %v, %v);
+	INSERT INTO messages (message_id, type, message, room_id, member_id) VALUES (%v, %v, %v, %v, %v)
+	RETURNING message_id, type, message, room_id, member_id, sent;
 	`
 )
 
@@ -32,13 +34,17 @@ type MemberRepository struct {
 
 func (m *MemberRepository) InsertMember(ctx context.Context, member sharechat.Member) (*sharechat.Message, error) {
 	db := sqlx.NewDb(m.db, m.driver)
+	var result sharechat.Message
 
 	message := sharechat.NewMemberJoinedMessage(member)
 	query := m.buildInsertQuery(member, message)
-	if err := executeTransaction(ctx, *db, query); err != nil {
+	if err := db.QueryRowxContext(ctx, query).StructScan(&result); err != nil {
 		return nil, err
 	}
-	return &message, nil
+
+	// stamp member name on message for ease of use client-side
+	result.MemberName = message.MemberName
+	return &result, nil
 }
 
 func (m *MemberRepository) buildInsertQuery(member sharechat.Member, message sharechat.Message) string {
@@ -68,13 +74,17 @@ func (m *MemberRepository) GetMembersByRoom(ctx context.Context, roomID string) 
 
 func (m *MemberRepository) DeleteMember(ctx context.Context, member sharechat.Member) (*sharechat.Message, error) {
 	db := sqlx.NewDb(m.db, m.driver)
+	var result sharechat.Message
 
 	message := sharechat.NewMemberLeftMessage(member)
 	query := m.buildDeleteQuery(member, message)
-	if err := executeTransaction(ctx, *db, query); err != nil {
+	if err := db.QueryRowxContext(ctx, query).StructScan(&result); err != nil {
 		return nil, err
 	}
-	return &message, nil
+
+	// stamp member name on message for ease of use client-side
+	result.MemberName = message.MemberName
+	return &result, nil
 }
 
 func (m *MemberRepository) buildDeleteQuery(member sharechat.Member, message sharechat.Message) string {

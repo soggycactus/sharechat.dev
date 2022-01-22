@@ -10,7 +10,7 @@ import (
 )
 
 type MessageRepository interface {
-	InsertMessage(ctx context.Context, message Message) error
+	InsertMessage(ctx context.Context, message Message) (*Message, error)
 	GetMessagesByRoom(ctx context.Context, roomID string) (*[]Message, error)
 }
 

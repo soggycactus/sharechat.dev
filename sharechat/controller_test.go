@@ -42,6 +42,8 @@ func TestController(t *testing.T) {
 		WithWriteMessageResult(nil).
 		WithReadBytesResult([]byte("hello world"), nil)
 
+	beforeSent := time.Now()
+
 	err = controller.ServeRoom(ctx, room.ID, connection)
 	if err != nil {
 		t.Fatalf("failed to serve room: %v", err)
@@ -53,4 +55,5 @@ func TestController(t *testing.T) {
 	assert.Equal(t, sharechat.Chat, chat.Type, "second message should be chat type")
 	assert.Equal(t, "hello world", chat.Message, "message content should be equal")
 	assert.Equal(t, 1, len(room.Members()), "room should have one member")
+	assert.True(t, beforeSent.Before(chat.Sent), "message timestamp should be more recent")
 }

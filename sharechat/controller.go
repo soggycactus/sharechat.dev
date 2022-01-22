@@ -184,13 +184,14 @@ func (c *Controller) Publish(ctx context.Context, member *Member) {
 				}
 				return
 			default:
-				if err := c.messageRepo.InsertMessage(ctx, message); err != nil {
+				result, err := c.messageRepo.InsertMessage(ctx, message)
+				if err != nil {
 					log.Printf("failed to insert message: %v", err)
 					member.inbound <- NewSendFailedMessage(*member)
 					break
 				}
 
-				if err := c.queue.Publish(ctx, message); err != nil {
+				if err := c.queue.Publish(ctx, *result); err != nil {
 					log.Printf("failed to publish message: %v", err)
 				}
 			}
