@@ -18,7 +18,7 @@ RUN make build
 # The second stage container, for running the application
 # -----------------------------------------------------------------
 FROM alpine:3.14
-COPY --from=builder /build/bin/sharechat /app/sharechat
+COPY --from=builder /build/bin /app
 COPY --from=builder /build/migrations /app/migrations
 WORKDIR /app
 
