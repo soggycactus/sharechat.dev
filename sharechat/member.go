@@ -29,7 +29,6 @@ type Member struct {
 	// startBroadcast allows the Member to begin sending messages
 	startBroadcast chan struct{}
 	// channels to shut down the goroutines
-	stopListen    chan struct{}
 	stopBroadcast chan struct{}
 	// callbacks for synchronizing goroutines during tests
 	callbackListen func()
@@ -49,7 +48,6 @@ func NewMember(name string, roomID string, conn Connection) *Member {
 		readyListen:    make(chan struct{}),
 		readyBroadcast: make(chan struct{}),
 		startBroadcast: make(chan struct{}),
-		stopListen:     make(chan struct{}),
 		stopBroadcast:  make(chan struct{}),
 		conn:           conn,
 		callbackListen: func() {},
@@ -62,17 +60,13 @@ func NewMember(name string, roomID string, conn Connection) *Member {
 func (m *Member) Listen() {
 	m.readyListen <- struct{}{}
 	for {
-		select {
-		case message, ok := <-m.inbound:
-			if !ok {
-				return
-			}
-			if err := m.conn.WriteMessage(message); err != nil {
-				log.Printf("failed to write message to Member %s: %v", m.Name, err)
-			}
-		case <-m.stopListen:
+		message, ok := <-m.inbound
+		if !ok {
 			m.callbackListen()
 			return
+		}
+		if err := m.conn.WriteMessage(message); err != nil {
+			log.Printf("failed to write message to Member %s: %v", m.Name, err)
 		}
 		m.callbackListen()
 	}
@@ -121,12 +115,6 @@ func (m *Member) Outbound() Message {
 	return <-m.outbound
 }
 
-func (m *Member) CloseOutbound() {
-	m.closeOutbound.Do(func() {
-		close(m.outbound)
-	})
-}
-
 func (m *Member) ListenReady(ctx context.Context) error {
 	select {
 	case <-m.readyListen:
@@ -147,10 +135,6 @@ func (m *Member) BroadcastReady(ctx context.Context) error {
 
 func (m *Member) StartBroadcast() {
 	m.startBroadcast <- struct{}{}
-}
-
-func (m *Member) StopListen() {
-	m.stopListen <- struct{}{}
 }
 
 func (m *Member) StopBroadcast() {

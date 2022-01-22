@@ -48,23 +48,13 @@ func (c *Controller) CreateRoom(ctx context.Context, name string, callbackFn ...
 
 	err := c.Subscribe(ctx, room)
 	if err != nil {
-		shutdownErr := c.shutdownRoom(ctx, room.ID)
-		if shutdownErr == ErrRoomNotShutdown {
-			// ErrRoomNotShutdown means the room hasn't processed our shutdown request yet.
-			// We close the inbound channel to force the goroutine to stop.
-			room.CloseInbound()
-		}
+		room.CloseInbound()
 		c.deleteRoomFromCache(room.ID)
 		return nil, err
 	}
 
 	if err := c.roomRepo.InsertRoom(ctx, room); err != nil {
-		shutdownErr := c.shutdownRoom(ctx, room.ID)
-		if shutdownErr == ErrRoomNotShutdown {
-			// ErrRoomNotShutdown means the room hasn't processed our shutdown request yet.
-			// We close the inbound channel to force the goroutine to stop.
-			room.CloseInbound()
-		}
+		room.CloseInbound()
 		c.deleteRoomFromCache(room.ID)
 		return nil, err
 	}
@@ -87,12 +77,7 @@ func (c *Controller) ServeRoom(ctx context.Context, roomID string, connection Co
 			return err
 		}
 		if err := c.Subscribe(ctx, room); err != nil {
-			shutdownErr := c.shutdownRoom(ctx, room.ID)
-			if shutdownErr == ErrRoomNotShutdown {
-				// ErrRoomNotShutdown means the room hasn't processed our shutdown request yet.
-				// We close the inbound channel to force the goroutine to stop.
-				room.CloseInbound()
-			}
+			room.CloseInbound()
 			c.deleteRoomFromCache(room.ID)
 			return err
 		}
@@ -116,18 +101,18 @@ func (c *Controller) ServeRoom(ctx context.Context, roomID string, connection Co
 	go member.Broadcast()
 	err = member.BroadcastReady(ctx)
 	if err != nil {
-		defer member.StopListen()
+		member.CloseInbound()
 		// Do not allow the member to Broadcast if the
 		// goroutine does not start within our context deadline.
 		// This also halts the Publish goroutine started previously.
-		member.CloseOutbound()
+		member.StopBroadcast()
 		return err
 	}
 
 	message, err := c.memberRepo.InsertMember(ctx, *member)
 	if err != nil {
-		defer member.StopListen()
-		defer member.StopBroadcast()
+		member.CloseInbound()
+		member.StopBroadcast()
 		return err
 	}
 
@@ -178,27 +163,6 @@ func (c *Controller) startRoom(ctx context.Context, room *Room) error {
 	}
 }
 
-func (c *Controller) shutdownRoom(ctx context.Context, roomID string) error {
-	if room, ok := c.roomCache[roomID]; ok {
-		// shutdown the room, return if not received before the deadline
-		select {
-		case room.shutdown <- struct{}{}:
-		case <-ctx.Done():
-			// ensure the room cannot start again if the goroutine has already been closed
-			room.CloseInbound()
-			return ErrRoomNotReceiving
-		}
-
-		// wait for the room to be successfully shutdown
-		select {
-		case <-room.stopped:
-		case <-ctx.Done():
-			return ErrRoomNotShutdown
-		}
-	}
-	return nil
-}
-
 func (c *Controller) Publish(ctx context.Context, member *Member) {
 	for {
 		select {
@@ -245,6 +209,7 @@ func (c *Controller) Subscribe(ctx context.Context, room *Room) error {
 	controller := make(chan Message)
 	done := make(chan struct{})
 	ready := make(chan struct{})
+	// start goroutine to funnel messages from the queue to controller
 	go fn(controller, done, ready)
 	<-ready
 	go func(controller chan Message, done, ready chan struct{}) {
@@ -252,6 +217,7 @@ func (c *Controller) Subscribe(ctx context.Context, room *Room) error {
 		for {
 			select {
 			case <-room.shutdown:
+				// shut down goroutine funneling messages from queue to controller
 				done <- struct{}{}
 				return
 			case message := <-controller:
