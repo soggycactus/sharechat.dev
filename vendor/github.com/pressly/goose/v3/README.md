@@ -29,10 +29,12 @@ Goose supports [embedding SQL migrations](#embedded-sql-migrations), which means
       thus no driver `panic()` conflict within your codebase!
     - goose pkg doesn't have any vendor dependencies anymore
 - We use timestamped migrations by default but recommend a hybrid approach of using timestamps in the development process and sequential versions in production.
+- Supports missing (out-of-order) migrations with the `-allow-missing` flag, or if using as a library supply the functional option `goose.WithAllowMissing()` to Up, UpTo or UpByOne.
+- Supports applying ad-hoc migrations without tracking them in the schema table. Useful for seeding a database after migrations have been applied. Use `-no-versioning` flag or the functional option `goose.WithNoVersioning()`.
 
 # Install
 
-    $ go get -u github.com/pressly/goose/v3/cmd/goose
+    $ go install github.com/pressly/goose/v3/cmd/goose@latest
 
 This will install the `goose` binary to your `$GOPATH/bin` directory.
 
@@ -40,6 +42,9 @@ For a lite version of the binary without DB connection dependent commands, use t
 
     $ go build -tags='no_postgres no_mysql no_sqlite3' -i -o goose ./cmd/goose
 
+For macOS users `goose` is available as a [Homebrew Formulae](https://formulae.brew.sh/formula/goose#default):
+
+    $ brew install goose 
 
 # Usage
 
@@ -52,6 +57,8 @@ Drivers:
     sqlite3
     mssql
     redshift
+    tidb
+    clickhouse
 
 Examples:
     goose sqlite3 ./foo.db status
@@ -68,11 +75,22 @@ Examples:
 
 Options:
 
+  -allow-missing
+    	applies missing (out-of-order) migrations
+  -certfile string
+    	file path to root CA's certificates in pem format (only support on mysql)
   -dir string
     	directory with migration files (default ".")
+  -h	print help
+  -no-versioning
+    	apply migration commands with no versioning, in file order, from directory pointed to
+  -s	use sequential numbering for new migrations
+  -ssl-cert string
+    	file path to SSL certificates in pem format (only support on mysql)
+  -ssl-key string
+    	file path to SSL key in pem format (only support on mysql)
   -table string
     	migrations table name (default "goose_db_version")
-  -h	print help
   -v	enable verbose mode
   -version
     	print version
@@ -232,7 +250,7 @@ language plpgsql;
 Go 1.16 introduced new feature: [compile-time embedding](https://pkg.go.dev/embed/) files into binary and
 corresponding [filesystem abstraction](https://pkg.go.dev/io/fs/).
 
-This feature can be used only for applying existing migrations. Modifying operations such as 
+This feature can be used only for applying existing migrations. Modifying operations such as
 `fix` and `create` will continue to operate on OS filesystem even if using embedded files. This is expected
 behaviour because `io/fs` interfaces allows read-only access.
 
@@ -243,7 +261,7 @@ package main
 import (
     "database/sql"
     "embed"
-    
+
     "github.com/pressly/goose/v3"
 )
 
@@ -251,8 +269,8 @@ import (
 var embedMigrations embed.FS
 
 func main() {
-    var db *sql.DB 
-    // setup database 
+    var db *sql.DB
+    // setup database
 
     goose.SetBaseFS(embedMigrations)
 
@@ -305,10 +323,20 @@ func Down(tx *sql.Tx) error {
 }
 ```
 
+# Development
+
+This can be used to build local `goose` binaries without having the latest Go version installed locally.
+
+```bash
+DOCKER_BUILDKIT=1  docker build -f Dockerfile.local --output bin .
+```
+
 # Hybrid Versioning
 Please, read the [versioning problem](https://github.com/pressly/goose/issues/63#issuecomment-428681694) first.
 
-We strongly recommend adopting a hybrid versioning approach, using both timestamps and sequential numbers. Migrations created during the development process are timestamped and sequential versions are ran on production. We believe this method will prevent the problem of conflicting versions when writing software in a team environment.
+By default, if you attempt to apply missing (out-of-order) migrations `goose` will raise an error. However, If you want to apply these missing migrations pass goose the `-allow-missing` flag, or if using as a library supply the functional option `goose.WithAllowMissing()` to Up, UpTo or UpByOne.
+
+However, we strongly recommend adopting a hybrid versioning approach, using both timestamps and sequential numbers. Migrations created during the development process are timestamped and sequential versions are ran on production. We believe this method will prevent the problem of conflicting versions when writing software in a team environment.
 
 To help you adopt this approach, `create` will use the current timestamp as the migration version. When you're ready to deploy your migrations in a production environment, we also provide a helpful `fix` command to convert your migrations into sequential order, while preserving the timestamp ordering. We recommend running `fix` in the CI pipeline, and only when the migrations are ready for production.
 

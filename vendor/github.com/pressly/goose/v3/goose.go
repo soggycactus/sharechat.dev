@@ -38,13 +38,22 @@ func SetBaseFS(fsys fs.FS) {
 
 // Run runs a goose command.
 func Run(command string, db *sql.DB, dir string, args ...string) error {
+	return run(command, db, dir, args)
+}
+
+// Run runs a goose command with options.
+func RunWithOptions(command string, db *sql.DB, dir string, args []string, options ...OptionsFunc) error {
+	return run(command, db, dir, args, options...)
+}
+
+func run(command string, db *sql.DB, dir string, args []string, options ...OptionsFunc) error {
 	switch command {
 	case "up":
-		if err := Up(db, dir); err != nil {
+		if err := Up(db, dir, options...); err != nil {
 			return err
 		}
 	case "up-by-one":
-		if err := UpByOne(db, dir); err != nil {
+		if err := UpByOne(db, dir, options...); err != nil {
 			return err
 		}
 	case "up-to":
@@ -56,7 +65,7 @@ func Run(command string, db *sql.DB, dir string, args ...string) error {
 		if err != nil {
 			return fmt.Errorf("version must be a number (got '%s')", args[0])
 		}
-		if err := UpTo(db, dir, version); err != nil {
+		if err := UpTo(db, dir, version, options...); err != nil {
 			return err
 		}
 	case "create":
@@ -72,7 +81,7 @@ func Run(command string, db *sql.DB, dir string, args ...string) error {
 			return err
 		}
 	case "down":
-		if err := Down(db, dir); err != nil {
+		if err := Down(db, dir, options...); err != nil {
 			return err
 		}
 	case "down-to":
@@ -84,7 +93,7 @@ func Run(command string, db *sql.DB, dir string, args ...string) error {
 		if err != nil {
 			return fmt.Errorf("version must be a number (got '%s')", args[0])
 		}
-		if err := DownTo(db, dir, version); err != nil {
+		if err := DownTo(db, dir, version, options...); err != nil {
 			return err
 		}
 	case "fix":
@@ -92,19 +101,19 @@ func Run(command string, db *sql.DB, dir string, args ...string) error {
 			return err
 		}
 	case "redo":
-		if err := Redo(db, dir); err != nil {
+		if err := Redo(db, dir, options...); err != nil {
 			return err
 		}
 	case "reset":
-		if err := Reset(db, dir); err != nil {
+		if err := Reset(db, dir, options...); err != nil {
 			return err
 		}
 	case "status":
-		if err := Status(db, dir); err != nil {
+		if err := Status(db, dir, options...); err != nil {
 			return err
 		}
 	case "version":
-		if err := Version(db, dir); err != nil {
+		if err := Version(db, dir, options...); err != nil {
 			return err
 		}
 	default:
