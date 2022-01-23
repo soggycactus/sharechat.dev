@@ -21,6 +21,7 @@ func NewController(input NewControllerInput) *Controller {
 		memberRepo:  input.MemberRepo,
 		messageRepo: input.MessageRepo,
 		queue:       input.Queue,
+		generator:   NewGenerator(),
 		Healthcheck: input.Healthcheck,
 		mu:          new(sync.Mutex),
 		roomCache:   make(map[string]*Room),
@@ -33,14 +34,15 @@ type Controller struct {
 	messageRepo MessageRepository
 	queue       Queue
 
+	generator   Generator
 	Healthcheck func(http.ResponseWriter, *http.Request)
 
 	mu        *sync.Mutex
 	roomCache map[string]*Room
 }
 
-func (c *Controller) CreateRoom(ctx context.Context, name string, callbackFn ...func(*Message)) (*Room, error) {
-	room := NewRoom(name)
+func (c *Controller) CreateRoom(ctx context.Context, callbackFn ...func(*Message)) (*Room, error) {
+	room := NewRoom(c.generator.GenerateRoomName())
 	if len(callbackFn) != 0 {
 		// we don't support passing in multiple callback functions
 		room = room.WithCallbackInbound(callbackFn[0])
@@ -90,7 +92,7 @@ func (c *Controller) ServeRoom(ctx context.Context, roomID string, connection Co
 		room = cacheResult
 	}
 
-	member := NewMember("test", room.ID, connection)
+	member := NewMember(c.generator.GenerateMemberName(), room.ID, connection)
 
 	go member.Listen()
 	err := member.ListenReady(ctx)
