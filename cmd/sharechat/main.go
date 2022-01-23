@@ -1,10 +1,10 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
-	netHttp "net/http"
 	"os"
 
 	redisv8 "github.com/go-redis/redis/v8"
@@ -52,18 +52,16 @@ func main() {
 		MessageRepo: messageRepo,
 		MemberRepo:  memberRepo,
 		Queue:       redis.NewQueue(*redisClient),
-		Healthcheck: func(rw netHttp.ResponseWriter, r *netHttp.Request) {
-			if err := db.PingContext(r.Context()); err != nil {
-				rw.WriteHeader(netHttp.StatusServiceUnavailable)
-				return
+		Healthcheck: func(c context.Context) error {
+			if err := db.PingContext(c); err != nil {
+				return err
 			}
 
-			if err := redisClient.Ping(r.Context()).Err(); err != nil {
-				rw.WriteHeader(netHttp.StatusServiceUnavailable)
-				return
+			if err := redisClient.Ping(c).Err(); err != nil {
+				return err
 			}
 
-			rw.WriteHeader(netHttp.StatusOK)
+			return nil
 		},
 	})
 

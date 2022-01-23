@@ -18,11 +18,17 @@ func NewServer(controller *sharechat.Controller) *http.Server {
 	getMessages := NewGetRoomMessagesHandler(controller)
 
 	router := mux.NewRouter()
-	router.HandleFunc("/api/healthz", controller.Healthcheck).Methods(http.MethodGet)
 	router.HandleFunc("/api/room", createRoom).Methods(http.MethodPost)
 	router.HandleFunc("/api/room/{room}/messages", getMessages).Methods(http.MethodGet)
 	router.HandleFunc("/api/room/{room}", getRoom).Methods(http.MethodGet)
 	router.HandleFunc("/api/serve/{room}", serveRoom).Methods(http.MethodGet)
+	router.HandleFunc("/api/healthz", func(rw http.ResponseWriter, r *http.Request) {
+		if err := controller.Healthcheck(r.Context()); err != nil {
+			rw.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		rw.WriteHeader(http.StatusOK)
+	}).Methods(http.MethodGet)
 
 	server := http.Server{
 		Addr:         "0.0.0.0:8080",

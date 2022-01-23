@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/soggycactus/sharechat.dev/sharechat"
@@ -15,7 +14,7 @@ import (
 
 func NewCreateRoomHandler(controller *sharechat.Controller) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		room, err := controller.CreateRoom(context.Background(), uuid.NewString())
+		room, err := controller.CreateRoom(context.Background())
 		if err != nil {
 			log.Printf("failed to create room: %v", err)
 			http.Error(w, "failed to create room", http.StatusInternalServerError)

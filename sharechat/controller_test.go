@@ -31,7 +31,7 @@ func TestController(t *testing.T) {
 	defer fn()
 
 	roomProcessedMessage := make(chan sharechat.Message)
-	room, err := controller.CreateRoom(ctx, "test", func(m *sharechat.Message) {
+	room, err := controller.CreateRoom(ctx, func(m *sharechat.Message) {
 		roomProcessedMessage <- *m
 	})
 	if err != nil {
