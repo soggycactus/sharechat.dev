@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"github.com/soggycactus/sharechat.dev/sharechat"
@@ -17,6 +18,7 @@ func main() {
 		MessageRepo: messageRepo,
 		MemberRepo:  memberRepo,
 		Queue:       memory.NewQueue(),
+		Healthcheck: func(c context.Context) error { return nil },
 	})
 
 	server := http.NewServer(controller)
