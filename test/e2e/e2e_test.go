@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gavv/httpexpect"
 	redisv8 "github.com/go-redis/redis/v8"
+	"github.com/gorilla/websocket"
 	"github.com/pressly/goose/v3"
 	"github.com/soggycactus/sharechat.dev/sharechat"
 	sharechathttp "github.com/soggycactus/sharechat.dev/sharechat/http"
@@ -130,7 +132,7 @@ func TestMemory(t *testing.T) {
 		Queue:       memory.NewQueue(),
 	})
 
-	server := httptest.NewServer(sharechathttp.NewServer(controller).Handler)
+	server := httptest.NewServer(sharechathttp.NewServer(controller, websocket.Upgrader{HandshakeTimeout: 5 * time.Second}).Server.Handler)
 	defer server.Close()
 	e := httpexpect.New(t, server.URL)
 	ServeNewRoom(e)
@@ -166,7 +168,7 @@ func TestServeNewRoom(t *testing.T) {
 		Queue:       redis.NewQueue(*redisClient),
 	})
 
-	server := httptest.NewServer(sharechathttp.NewServer(controller).Handler)
+	server := httptest.NewServer(sharechathttp.NewServer(controller, websocket.Upgrader{HandshakeTimeout: 5 * time.Second}).Server.Handler)
 	defer server.Close()
 	e := httpexpect.New(t, server.URL)
 	ServeNewRoom(e)
@@ -202,7 +204,7 @@ func TestServeExistingRoom(t *testing.T) {
 		Queue:       redis.NewQueue(*redisClient),
 	})
 
-	server := httptest.NewServer(sharechathttp.NewServer(controller).Handler)
+	server := httptest.NewServer(sharechathttp.NewServer(controller, websocket.Upgrader{HandshakeTimeout: 5 * time.Second}).Server.Handler)
 	defer server.Close()
 	e := httpexpect.New(t, server.URL)
 
