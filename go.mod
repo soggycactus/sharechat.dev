@@ -1,6 +1,6 @@
 module github.com/soggycactus/sharechat.dev
 
-go 1.17
+go 1.19
 
 require (
 	github.com/gavv/httpexpect v2.0.0+incompatible
@@ -13,6 +13,7 @@ require (
 	github.com/lib/pq v1.10.4
 	github.com/pressly/goose/v3 v3.5.0
 	github.com/stretchr/testify v1.7.0
+	golang.org/x/text v0.4.0
 )
 
 require (
