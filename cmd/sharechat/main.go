@@ -6,14 +6,18 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	redisv8 "github.com/go-redis/redis/v8"
+	"github.com/gorilla/websocket"
 	"github.com/pressly/goose/v3"
 	"github.com/soggycactus/sharechat.dev/sharechat"
 	"github.com/soggycactus/sharechat.dev/sharechat/http"
 	"github.com/soggycactus/sharechat.dev/sharechat/postgres"
 	"github.com/soggycactus/sharechat.dev/sharechat/redis"
 )
+
+var upgrader websocket.Upgrader = websocket.Upgrader{HandshakeTimeout: 5 * time.Second}
 
 func main() {
 	dbUser := os.Getenv("POSTGRES_USER")
@@ -65,8 +69,8 @@ func main() {
 		},
 	})
 
-	server := http.NewServer(controller)
+	server := http.NewServer(controller, upgrader)
 
 	log.Print("starting sharechat server on port 8080")
-	log.Fatal(server.ListenAndServe())
+	log.Fatal(server.Server.ListenAndServe())
 }

@@ -3,11 +3,15 @@ package main
 import (
 	"context"
 	"log"
+	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/soggycactus/sharechat.dev/sharechat"
 	"github.com/soggycactus/sharechat.dev/sharechat/http"
 	"github.com/soggycactus/sharechat.dev/sharechat/memory"
 )
+
+var upgrader websocket.Upgrader = websocket.Upgrader{HandshakeTimeout: 5 * time.Second}
 
 func main() {
 	roomRepo := memory.NewRoomRepo()
@@ -21,8 +25,8 @@ func main() {
 		Healthcheck: func(c context.Context) error { return nil },
 	})
 
-	server := http.NewServer(controller)
+	server := http.NewServer(controller, upgrader)
 
 	log.Print("starting memorychat server on port 8080")
-	log.Fatal(server.ListenAndServe())
+	log.Fatal(server.Server.ListenAndServe())
 }
