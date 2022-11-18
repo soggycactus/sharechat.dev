@@ -12,6 +12,10 @@ To test the websocket endpoints, I recommend using [websocat](https://github.com
 
     brew install websocat
 
+If you want to see try a live version of this server, open a few terminals or grab a few devices (or friends!) and run the following:
+
+    websocat wss://sharechat.up.railway.app/api/serve/b755ba0e-c18a-4177-ab99-5893b411b5c1
+
 You can run the full application end-to-end using docker-compose. First spin up Redis (used as a queue) and Postgres (used as the storage):
 
     docker-compose up -d redis postgres
