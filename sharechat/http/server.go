@@ -118,6 +118,9 @@ func NewServer(controller *sharechat.Controller, upgrader websocket.Upgrader) *S
 	router.HandleFunc("/api/room/{room}", s.GetRoom).Methods(http.MethodGet)
 	router.HandleFunc("/api/serve/{room}", s.ServeRoom).Methods(http.MethodGet)
 	router.HandleFunc("/api/healthz", s.Health).Methods(http.MethodGet)
+	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("Welcome to sharechat.dev! Unfortunately I'm an infrastructure engineer, so I don't have a fancy UI for you :(\n\nI promise, this server still works though!"))
+	})
 
 	server := http.Server{
 		Addr:         "0.0.0.0:8080",
