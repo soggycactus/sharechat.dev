@@ -22,6 +22,7 @@ type Server struct {
 func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 	if err := s.controller.Healthcheck(r.Context()); err != nil {
 		w.WriteHeader(http.StatusServiceUnavailable)
+		log.Printf("healthcheck failed: %v", err)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
