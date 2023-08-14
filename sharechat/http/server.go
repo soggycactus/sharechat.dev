@@ -6,12 +6,25 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/rs/cors"
 	"github.com/soggycactus/sharechat.dev/sharechat"
 )
+
+type AllowedOrigins []string
+
+func (a *AllowedOrigins) String() string {
+	return strings.Join(*a, ",")
+}
+
+func (a *AllowedOrigins) Set(value string) error {
+	*a = append(*a, value)
+	return nil
+}
 
 type Server struct {
 	upgrader   *websocket.Upgrader
@@ -106,28 +119,43 @@ func (s *Server) ServeRoom(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func NewServer(controller *sharechat.Controller, upgrader websocket.Upgrader) *Server {
+func NewServer(controller *sharechat.Controller, upgrader websocket.Upgrader, corsOptons cors.Options) *Server {
 	router := mux.NewRouter()
 	s := Server{
 		upgrader:   &upgrader,
 		controller: controller,
 	}
 
-	router.HandleFunc("/api/room", s.CreateRoom).Methods(http.MethodPost)
-	router.HandleFunc("/api/room/{room}/messages", s.GetRoomMessages).Methods(http.MethodGet)
-	router.HandleFunc("/api/room/{room}", s.GetRoom).Methods(http.MethodGet)
-	router.HandleFunc("/api/serve/{room}", s.ServeRoom).Methods(http.MethodGet)
-	router.HandleFunc("/api/healthz", s.Health).Methods(http.MethodGet)
+	router.HandleFunc("/api/room", s.CreateRoom).Methods(http.MethodPost, http.MethodOptions)
+	router.HandleFunc("/api/room/{room}/messages", s.GetRoomMessages).Methods(http.MethodGet, http.MethodOptions)
+	router.HandleFunc("/api/room/{room}", s.GetRoom).Methods(http.MethodGet, http.MethodOptions)
+	router.HandleFunc("/api/serve/{room}", s.ServeRoom).Methods(http.MethodGet, http.MethodOptions)
+	router.HandleFunc("/api/healthz", s.Health).Methods(http.MethodGet, http.MethodOptions)
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("Welcome to sharechat.dev! Unfortunately I'm an infrastructure engineer, so I don't have a fancy UI for you :(\n\nI promise, this server still works though!"))
-	})
+	}).Methods(http.MethodGet, http.MethodOptions)
 
+	if corsOptons.AllowedOrigins != nil {
+		upgrader.CheckOrigin = func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			for _, allowedOrigin := range corsOptons.AllowedOrigins {
+				if origin == allowedOrigin {
+					return true
+				}
+			}
+			log.Printf("origin %s not allowed", origin)
+			return false
+		}
+	}
+
+	handler := cors.New(corsOptons).Handler(router)
 	server := http.Server{
 		Addr:         "0.0.0.0:8080",
-		Handler:      router,
+		Handler:      handler,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 	}
+
 	s.Server = &server
 
 	return &s

@@ -35,6 +35,10 @@ services:
       - postgres
       - redis
     build: . 
+    command: [
+      "--allowed-origin", 
+      "http://localhost:3000",
+    ]
     environment:
       POSTGRES_USER: user
       POSTGRES_PASS: password

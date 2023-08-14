@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -11,13 +12,17 @@ import (
 	redisv8 "github.com/go-redis/redis/v8"
 	"github.com/gorilla/websocket"
 	"github.com/pressly/goose/v3"
+	"github.com/rs/cors"
 	"github.com/soggycactus/sharechat.dev/sharechat"
 	"github.com/soggycactus/sharechat.dev/sharechat/http"
 	"github.com/soggycactus/sharechat.dev/sharechat/postgres"
 	"github.com/soggycactus/sharechat.dev/sharechat/redis"
 )
 
-var upgrader websocket.Upgrader = websocket.Upgrader{HandshakeTimeout: 5 * time.Second}
+var (
+	upgrader       websocket.Upgrader = websocket.Upgrader{HandshakeTimeout: 5 * time.Second}
+	allowedOrigins http.AllowedOrigins
+)
 
 func main() {
 	dbUser := os.Getenv("POSTGRES_USER")
@@ -28,6 +33,11 @@ func main() {
 	redisUser := os.Getenv("REDIS_USER")
 	redisPass := os.Getenv("REDIS_PASS")
 	redisHost := os.Getenv("REDIS_HOST")
+
+	flag.Var(&allowedOrigins, "allowed-origin", "allowed origins for CORS")
+	flag.Parse()
+
+	log.Printf("allowed origins: %v", allowedOrigins)
 
 	dbstring := fmt.Sprintf("user=%v dbname=%v password=%v host=%v port=%v sslmode=disable", dbUser, dbName, dbPass, dbHost, dbPort)
 	driver := "postgres"
@@ -69,7 +79,10 @@ func main() {
 		},
 	})
 
-	server := http.NewServer(controller, upgrader)
+	server := http.NewServer(controller, upgrader, cors.Options{
+		AllowedOrigins: allowedOrigins,
+		AllowedMethods: []string{"GET", "HEAD", "POST", "OPTIONS"},
+	})
 
 	log.Print("starting sharechat server on port 8080")
 	log.Fatal(server.Server.ListenAndServe())

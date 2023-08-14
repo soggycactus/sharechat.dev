@@ -1,5 +1,12 @@
 .PHONY: clean test
 
+run: 
+	docker-compose up -d postgres redis
+	docker-compose up --build sharechat
+
+stop:
+	docker-compose down
+
 build: 
 	go build -ldflags="-s -w" -o bin/sharechat cmd/sharechat/main.go
 	go build -ldflags="-s -w" -o bin/memorychat cmd/memorychat/main.go
