@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------
 # The first stage container, for builiding the application
 # -----------------------------------------------------------------
-FROM golang:1.17 as builder
+FROM golang:1.20 as builder
 
 ENV GO111MODULE=on \
     CGO_ENABLED=0 \

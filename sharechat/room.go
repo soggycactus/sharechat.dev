@@ -2,10 +2,11 @@ package sharechat
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"log"
 	"sync"
-
-	"github.com/google/uuid"
+	"time"
 )
 
 type RoomRepository interface {
@@ -35,9 +36,23 @@ type Room struct {
 	members map[string]*Member
 }
 
+func mustCreateRoomHash(text string) string {
+	now := time.Now().String() // Dynamic salt to ensure hash uniqueness
+
+	hasher := sha1.New()
+	_, err := hasher.Write([]byte(text + now))
+	if err != nil {
+		panic(err)
+	}
+	hash := hex.EncodeToString(hasher.Sum(nil))
+	hash = hash[:7] // use only first 6 characters - needs to be a short url for sharing
+
+	return hash
+}
+
 func NewRoom(name string) *Room {
 	return &Room{
-		ID:              uuid.New().String(),
+		ID:              mustCreateRoomHash(name),
 		Name:            name,
 		inbound:         make(chan Message),
 		shutdown:        make(chan struct{}),
