@@ -2,8 +2,11 @@ package sharechat
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,7 +14,7 @@ import (
 
 type MessageRepository interface {
 	InsertMessage(ctx context.Context, message Message) (*Message, error)
-	GetMessagesByRoom(ctx context.Context, roomID string) (*[]Message, error)
+	GetMessages(ctx context.Context, options GetMessageOptions) (*[]Message, error)
 }
 
 type Message struct {
@@ -27,6 +30,12 @@ type Message struct {
 	Sent time.Time `json:"sent" db:"sent"`
 }
 
+// MarshalBinary implements encoding.BinaryMarshaler
+// This is needed to publish Messages to the Queue
+func (m Message) MarshalBinary() ([]byte, error) {
+	return json.Marshal(m)
+}
+
 type MessageType string
 
 const (
@@ -36,10 +45,72 @@ const (
 	SendFailed   MessageType = "failed"
 )
 
-// MarshalBinary implements encoding.BinaryMarshaler
-// This is needed to publish Messages to the Queue
-func (m Message) MarshalBinary() ([]byte, error) {
-	return json.Marshal(m)
+type MessageCursor struct {
+	ID   string
+	Sent time.Time
+}
+
+func (m *MessageCursor) IsEmpty() bool {
+	return m.ID == "" && m.Sent.IsZero()
+}
+
+func (m *MessageCursor) Encode() string {
+	if m.IsEmpty() {
+		return ""
+	}
+
+	concat := fmt.Sprintf("%s,%s", m.ID, m.Sent.Format(time.RFC3339Nano))
+	return base64.StdEncoding.EncodeToString([]byte(concat))
+}
+
+func (m *MessageCursor) DecodeFromString(s string) error {
+	if s == "" {
+		return nil
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return err
+	}
+
+	parts := strings.Split(string(decoded), ",")
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid cursor format")
+	}
+
+	m.ID = parts[0]
+	m.Sent, err = time.Parse(time.RFC3339Nano, parts[1])
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type GetMessageOptions struct {
+	Limit  int
+	RoomID string
+	After  MessageCursor
+	Before MessageCursor
+}
+
+var ErrInvalidOptions = errors.New("invalid options:")
+
+func (g *GetMessageOptions) Validate() error {
+	if g.Limit < 0 {
+		return errors.Join(ErrInvalidOptions, errors.New("limit must be greater than 0"))
+	}
+
+	if !g.After.IsEmpty() && !g.Before.IsEmpty() {
+		return errors.Join(ErrInvalidOptions, errors.New("cannot specify both after and before"))
+	}
+
+	return nil
+}
+
+type GetMessagesResult struct {
+	Messages []Message
+	Next     MessageCursor
 }
 
 func NewChatMessage(member Member, message []byte) Message {

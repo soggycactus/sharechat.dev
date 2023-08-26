@@ -258,5 +258,7 @@ func (c *Controller) GetRoom(ctx context.Context, roomID string) (*GetRoomRespon
 }
 
 func (c *Controller) GetMessagesByRoom(ctx context.Context, roomID string) (*[]Message, error) {
-	return c.messageRepo.GetMessagesByRoom(ctx, roomID)
+	return c.messageRepo.GetMessages(ctx, GetMessageOptions{
+		RoomID: roomID,
+	})
 }

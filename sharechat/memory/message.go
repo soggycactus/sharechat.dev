@@ -27,14 +27,24 @@ func (m *MessageRepo) InsertMessage(ctx context.Context, message sharechat.Messa
 	return &message, nil
 }
 
-func (m *MessageRepo) GetMessagesByRoom(ctx context.Context, roomID string) (*[]sharechat.Message, error) {
+func (m *MessageRepo) GetMessages(ctx context.Context, options sharechat.GetMessageOptions) (*[]sharechat.Message, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	messages := make([]sharechat.Message, 0, len(m.Messages))
 	for _, message := range m.Messages {
-		if message.RoomID == roomID {
-			messages = append(messages, message)
+		if options.RoomID != "" && message.RoomID != options.RoomID {
+			continue
 		}
+
+		if options.Before.ID != "" && message.Sent.After(options.Before.Sent) {
+			continue
+		}
+
+		if options.After.ID != "" && message.Sent.Before(options.After.Sent) {
+			continue
+		}
+
+		messages = append(messages, message)
 	}
 
 	return &messages, nil
