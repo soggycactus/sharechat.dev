@@ -29,9 +29,9 @@ func ServeNewRoom(e *httpexpect.Expect) {
 		JSON().
 		Object()
 
-	response.Keys().ContainsOnly("room_id", "room_name")
-	roomID := response.Value("room_id").NotNull().String()
-	response.Value("room_name").NotNull().String()
+	response.Keys().ContainsOnly("roomId", "roomName")
+	roomID := response.Value("roomId").NotNull().String()
+	response.Value("roomName").NotNull().String()
 
 	ServeRoom(e, roomID.Raw())
 }
@@ -76,7 +76,7 @@ func ServeRoom(e *httpexpect.Expect, roomID string) {
 		JSON().
 		Object().
 		ValueEqual("type", sharechat.MemberJoined).
-		Value("member_id").String().Raw()
+		Value("memberId").String().Raw()
 
 	ws2.WriteText("hello ws1!").
 		Expect().
@@ -108,7 +108,7 @@ func ServeRoom(e *httpexpect.Expect, roomID string) {
 		JSON().
 		Object()
 
-	roomResponse.Keys().ContainsOnly("room_id", "room_name", "members")
+	roomResponse.Keys().ContainsOnly("roomId", "roomName", "members")
 	// assert that only ws2 is still in the room
 	members := roomResponse.Value("members").Array().NotEmpty()
 	members.Length().Equal(1)

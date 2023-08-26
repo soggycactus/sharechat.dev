@@ -36,7 +36,7 @@ Rooms are created by sending a POST request to `/api/room`:
     Content-Length: 80
 
     {
-        "room_id":"acc3949d-a952-4b0e-8651-13be3cab3563","room_name":"Imperfect Seat"
+        "roomId":"acc3949d-a952-4b0e-8651-13be3cab3563","roomName":"Imperfect Seat"
     }
 
 ### Connecting to a room
@@ -127,8 +127,8 @@ Request: Empty body
 Response: 
 
     {
-        "room_id":"<room-id>",
-        "room_name":"<room-name>"
+        "roomId":"<room-id>",
+        "roomName":"<room-name>"
     }
 
 ### `/api/room/<room-id>`
@@ -142,8 +142,8 @@ Request: Empty body
 Response: 
 
     {
-        "room_id":"<room-id>",
-        "room_name":"<room-name>"
+        "roomId":"<room-id>",
+        "roomName":"<room-name>"
         "members": [
             {
                 "id":"<member-id>",
@@ -165,9 +165,9 @@ Response:
     [
         {
             "id": "<message-id>",
-            "room_id": "<room-id>",
-            "member_id": "<member-id>",
-            "member_name": "<member-name>",
+            "roomId": "<room-id>",
+            "memberId": "<member-id>",
+            "memberName": "<member-name>",
             "type": "<'chat' | 'joined' | 'left' | 'failed'>",
             "message": "<message>",
             "sent": "<timestamp>"

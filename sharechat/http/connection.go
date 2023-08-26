@@ -21,6 +21,7 @@ func (w *Connection) ReadBytes() ([]byte, error) {
 				websocket.CloseGoingAway,
 				websocket.CloseAbnormalClosure,
 				websocket.CloseNormalClosure,
+				websocket.CloseNoStatusReceived,
 			) {
 				return bytes, err
 			}

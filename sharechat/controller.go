@@ -238,8 +238,8 @@ func (c *Controller) Subscribe(ctx context.Context, room *Room) error {
 }
 
 type GetRoomResponse struct {
-	RoomID   string   `json:"room_id"`
-	RoomName string   `json:"room_name"`
+	RoomID   string   `json:"roomId"`
+	RoomName string   `json:"roomName"`
 	Members  []Member `json:"members"`
 }
 
