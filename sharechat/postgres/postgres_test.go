@@ -1,3 +1,5 @@
+//go:build int || all
+
 package postgres_test
 
 import (
