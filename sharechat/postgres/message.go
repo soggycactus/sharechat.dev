@@ -49,7 +49,7 @@ func (m *MessageRepository) InsertMessage(ctx context.Context, message sharechat
 	return &result, nil
 }
 
-func (m *MessageRepository) GetMessages(ctx context.Context, options sharechat.GetMessageOptions) (*[]sharechat.Message, error) {
+func (m *MessageRepository) GetMessages(ctx context.Context, options sharechat.GetMessageOptions) ([]sharechat.Message, error) {
 	db := sqlx.NewDb(m.db, m.driver)
 	var result []sharechat.Message
 
@@ -62,7 +62,7 @@ func (m *MessageRepository) GetMessages(ctx context.Context, options sharechat.G
 		return nil, err
 	}
 
-	return &result, nil
+	return result, nil
 }
 
 func (m *MessageRepository) buildGetMessagesQuery(options sharechat.GetMessageOptions) (*string, error) {

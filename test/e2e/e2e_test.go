@@ -115,11 +115,15 @@ func ServeRoom(e *httpexpect.Expect, roomID string) {
 	members.Element(0).Object().ValueEqual("id", ws2ID)
 
 	// a total of 5 messages were sent, assert they are all recorded
-	e.GET("/api/room/{roomID}/messages").WithPath("roomID", roomID).
+	response := e.GET("/api/room/{roomID}/messages").WithPath("roomID", roomID).
 		Expect().
 		Status(http.StatusOK).
-		JSON().
-		Array().NotEmpty().Length().Equal(5)
+		JSON().Object()
+
+	response.Keys().ContainsOnly("messages", "numResults", "next")
+	response.Value("numResults").Number().Equal(5)
+	response.Value("messages").Array().Length().Equal(5)
+	response.Value("next").String().Empty()
 }
 
 func TestMemory(t *testing.T) {

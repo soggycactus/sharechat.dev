@@ -125,11 +125,11 @@ func TestAll(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		require.Equal(t, 1, len(*result), "should only return one message")
-		assert.Equal(t, testMessages[i].ID, (*result)[0].ID, "should return the correct message")
+		require.Equal(t, 1, len(result), "should only return one message")
+		assert.Equal(t, testMessages[i].ID, (result)[0].ID, "should return the correct message")
 		cursor = sharechat.MessageCursor{
-			ID:   (*result)[0].ID,
-			Sent: (*result)[0].Sent,
+			ID:   (result)[0].ID,
+			Sent: (result)[0].Sent,
 		}
 	}
 
@@ -145,11 +145,11 @@ func TestAll(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		require.Equal(t, 1, len(*result), "should only return one message")
-		assert.Equal(t, testMessages[i].ID, (*result)[0].ID, "should return the correct message")
+		require.Equal(t, 1, len(result), "should only return one message")
+		assert.Equal(t, testMessages[i].ID, (result)[0].ID, "should return the correct message")
 		cursor = sharechat.MessageCursor{
-			ID:   (*result)[0].ID,
-			Sent: (*result)[0].Sent,
+			ID:   (result)[0].ID,
+			Sent: (result)[0].Sent,
 		}
 	}
 
@@ -174,7 +174,7 @@ func TestAll(t *testing.T) {
 	foundJoinedMessage := false
 	foundChatMessage := false
 	foundDeletedMessage := false
-	for _, m := range *messages {
+	for _, m := range messages {
 		switch m.ID {
 		case joinedMessage.ID:
 			foundJoinedMessage = true

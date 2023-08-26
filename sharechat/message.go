@@ -14,7 +14,7 @@ import (
 
 type MessageRepository interface {
 	InsertMessage(ctx context.Context, message Message) (*Message, error)
-	GetMessages(ctx context.Context, options GetMessageOptions) (*[]Message, error)
+	GetMessages(ctx context.Context, options GetMessageOptions) ([]Message, error)
 }
 
 type Message struct {

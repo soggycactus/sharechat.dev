@@ -27,7 +27,7 @@ func (m *MessageRepo) InsertMessage(ctx context.Context, message sharechat.Messa
 	return &message, nil
 }
 
-func (m *MessageRepo) GetMessages(ctx context.Context, options sharechat.GetMessageOptions) (*[]sharechat.Message, error) {
+func (m *MessageRepo) GetMessages(ctx context.Context, options sharechat.GetMessageOptions) ([]sharechat.Message, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	messages := make([]sharechat.Message, 0, len(m.Messages))
@@ -47,5 +47,5 @@ func (m *MessageRepo) GetMessages(ctx context.Context, options sharechat.GetMess
 		messages = append(messages, message)
 	}
 
-	return &messages, nil
+	return messages, nil
 }

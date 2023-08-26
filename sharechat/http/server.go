@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -73,6 +74,12 @@ func (s *Server) GetRoom(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(response)
 }
 
+type GetRoomMessagesResponse struct {
+	Messages   []sharechat.Message `json:"messages"`
+	NumResults int                 `json:"numResults"`
+	Next       string              `json:"next"`
+}
+
 func (s *Server) GetRoomMessages(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	roomID, ok := vars["room"]
@@ -82,15 +89,68 @@ func (s *Server) GetRoomMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	messages, err := s.controller.GetMessagesByRoom(r.Context(), roomID)
+	options := sharechat.GetMessageOptions{
+		Limit:  0,
+		RoomID: roomID,
+	}
+
+	if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
+		limit, err := strconv.Atoi(rawLimit)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		options.Limit = limit
+	}
+
+	if rawCursor := r.URL.Query().Get("after"); rawCursor != "" {
+		cursor := sharechat.MessageCursor{}
+		if err := cursor.DecodeFromString(rawCursor); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		options.After = cursor
+	}
+
+	if rawCursor := r.URL.Query().Get("before"); rawCursor != "" {
+		cursor := sharechat.MessageCursor{}
+		if err := cursor.DecodeFromString(rawCursor); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		options.Before = cursor
+	}
+
+	messages, err := s.controller.GetMessages(r.Context(), options)
 	if err != nil {
+		if errors.Is(err, sharechat.ErrInvalidOptions) {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
 		log.Printf("failed to get messages for room %s: %v", roomID, err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Add("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(messages)
+
+	nextCursor := sharechat.MessageCursor{}
+	if len(messages) > 0 {
+		nextCursor = sharechat.MessageCursor{
+			Sent: messages[len(messages)-1].Sent,
+			ID:   messages[len(messages)-1].ID,
+		}
+	}
+
+	response := GetRoomMessagesResponse{
+		Messages:   messages,
+		NumResults: len(messages),
+		Next:       nextCursor.Encode(),
+	}
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 func (s *Server) ServeRoom(w http.ResponseWriter, r *http.Request) {
