@@ -121,6 +121,8 @@ func (s *Server) ServeRoom(w http.ResponseWriter, r *http.Request) {
 
 func NewServer(controller *sharechat.Controller, upgrader websocket.Upgrader, corsOptons cors.Options) *Server {
 	router := mux.NewRouter()
+	c := cors.New(corsOptons)
+	upgrader.CheckOrigin = c.OriginAllowed
 	s := Server{
 		upgrader:   &upgrader,
 		controller: controller,
@@ -135,20 +137,7 @@ func NewServer(controller *sharechat.Controller, upgrader websocket.Upgrader, co
 		_, _ = w.Write([]byte("Welcome to sharechat.dev! Unfortunately I'm an infrastructure engineer, so I don't have a fancy UI for you :(\n\nI promise, this server still works though!"))
 	}).Methods(http.MethodGet, http.MethodOptions)
 
-	if corsOptons.AllowedOrigins != nil {
-		upgrader.CheckOrigin = func(r *http.Request) bool {
-			origin := r.Header.Get("Origin")
-			for _, allowedOrigin := range corsOptons.AllowedOrigins {
-				if origin == allowedOrigin {
-					return true
-				}
-			}
-			log.Printf("origin %s not allowed", origin)
-			return false
-		}
-	}
-
-	handler := cors.New(corsOptons).Handler(router)
+	handler := c.Handler(router)
 	server := http.Server{
 		Addr:         "0.0.0.0:8080",
 		Handler:      handler,
