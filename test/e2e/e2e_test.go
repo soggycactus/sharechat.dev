@@ -1,5 +1,3 @@
-//go:build e2e || all
-
 package e2e
 
 import (
@@ -20,9 +18,10 @@ import (
 	"github.com/soggycactus/sharechat.dev/sharechat/memory"
 	"github.com/soggycactus/sharechat.dev/sharechat/postgres"
 	"github.com/soggycactus/sharechat.dev/sharechat/redis"
+	"github.com/stretchr/testify/assert"
 )
 
-func ServeNewRoom(e *httpexpect.Expect) {
+func ServeNewRoom(t *testing.T, e *httpexpect.Expect) {
 	response := e.POST("/api/room").WithHeader("Content-Type", "application/json").
 		Expect().
 		Status(http.StatusOK).
@@ -33,10 +32,10 @@ func ServeNewRoom(e *httpexpect.Expect) {
 	roomID := response.Value("roomId").NotNull().String()
 	response.Value("roomName").NotNull().String()
 
-	ServeRoom(e, roomID.Raw())
+	ServeRoom(t, e, roomID.Raw())
 }
 
-func ServeRoom(e *httpexpect.Expect, roomID string) {
+func ServeRoom(t *testing.T, e *httpexpect.Expect, roomID string) {
 	ws1 := e.GET("/api/serve/{roomID}").WithPath("roomID", roomID).
 		WithWebsocketUpgrade().
 		Expect().
@@ -114,12 +113,37 @@ func ServeRoom(e *httpexpect.Expect, roomID string) {
 	members.Length().Equal(1)
 	members.Element(0).Object().ValueEqual("id", ws2ID)
 
-	// a total of 5 messages were sent, assert they are all recorded
-	e.GET("/api/room/{roomID}/messages").WithPath("roomID", roomID).
-		Expect().
-		Status(http.StatusOK).
-		JSON().
-		Array().NotEmpty().Length().Equal(5)
+	receivedMessages := make(map[string]struct{})
+	cursor := ""
+	for {
+		// a total of 5 messages were sent, assert they are all recorded
+		response := e.GET("/api/room/{roomID}/messages").WithPath("roomID", roomID).
+			WithQuery("limit", 2)
+
+		if cursor != "" {
+			response = response.WithQuery("before", cursor)
+		}
+
+		r := response.Expect().Status(http.StatusOK).JSON().Object()
+
+		if r.Value("numResults").Number().Raw() == 0 {
+			r.Value("next").String().Empty()
+			break
+		}
+
+		r.Keys().ContainsOnly("messages", "numResults", "next")
+		r.Value("numResults").Number().Le(2)
+		r.Value("messages").Array().Length().Le(2)
+
+		for _, message := range r.Value("messages").Array().Iter() {
+			message.Object().Keys().ContainsOnly("id", "roomId", "memberId", "memberName", "type", "message", "sent")
+			receivedMessages[message.Object().Value("id").String().Raw()] = struct{}{}
+		}
+		cursor = r.Value("next").String().Raw()
+	}
+
+	assert.Len(t, receivedMessages, 5)
+
 }
 
 func TestMemory(t *testing.T) {
@@ -136,7 +160,7 @@ func TestMemory(t *testing.T) {
 	server := httptest.NewServer(sharechathttp.NewServer(controller, websocket.Upgrader{HandshakeTimeout: 5 * time.Second}, cors.Options{}).Server.Handler)
 	defer server.Close()
 	e := httpexpect.New(t, server.URL)
-	ServeNewRoom(e)
+	ServeNewRoom(t, e)
 }
 
 func TestServeNewRoom(t *testing.T) {
@@ -172,7 +196,7 @@ func TestServeNewRoom(t *testing.T) {
 	server := httptest.NewServer(sharechathttp.NewServer(controller, websocket.Upgrader{HandshakeTimeout: 5 * time.Second}, cors.Options{}).Server.Handler)
 	defer server.Close()
 	e := httpexpect.New(t, server.URL)
-	ServeNewRoom(e)
+	ServeNewRoom(t, e)
 }
 
 func TestServeExistingRoom(t *testing.T) {
@@ -215,5 +239,5 @@ func TestServeExistingRoom(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ServeRoom(e, existingRoom.ID)
+	ServeRoom(t, e, existingRoom.ID)
 }

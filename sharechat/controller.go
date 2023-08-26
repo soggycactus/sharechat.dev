@@ -257,6 +257,10 @@ func (c *Controller) GetRoom(ctx context.Context, roomID string) (*GetRoomRespon
 	return &GetRoomResponse{RoomID: room.ID, RoomName: room.Name, Members: *members}, nil
 }
 
-func (c *Controller) GetMessagesByRoom(ctx context.Context, roomID string) (*[]Message, error) {
-	return c.messageRepo.GetMessagesByRoom(ctx, roomID)
+func (c *Controller) GetMessages(ctx context.Context, options GetMessageOptions) ([]Message, error) {
+	if err := options.Validate(); err != nil {
+		return nil, err
+	}
+
+	return c.messageRepo.GetMessages(ctx, options)
 }

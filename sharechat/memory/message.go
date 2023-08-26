@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
@@ -27,15 +28,54 @@ func (m *MessageRepo) InsertMessage(ctx context.Context, message sharechat.Messa
 	return &message, nil
 }
 
-func (m *MessageRepo) GetMessagesByRoom(ctx context.Context, roomID string) (*[]sharechat.Message, error) {
+func (m *MessageRepo) GetMessages(ctx context.Context, options sharechat.GetMessageOptions) ([]sharechat.Message, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	messages := make([]sharechat.Message, 0, len(m.Messages))
+
+	sortedMessages := []sharechat.Message{}
 	for _, message := range m.Messages {
-		if message.RoomID == roomID {
-			messages = append(messages, message)
-		}
+		sortedMessages = append(sortedMessages, message)
 	}
 
-	return &messages, nil
+	switch {
+	case !options.Before.IsEmpty():
+		sort.Slice(sortedMessages, func(i, j int) bool {
+			return sortedMessages[j].Sent.Before(sortedMessages[i].Sent)
+		})
+	case !options.After.IsEmpty():
+		sort.Slice(sortedMessages, func(i, j int) bool {
+			return sortedMessages[i].Sent.Before(sortedMessages[j].Sent)
+		})
+	default:
+		sort.Slice(sortedMessages, func(i, j int) bool {
+			return sortedMessages[j].Sent.Before(sortedMessages[i].Sent)
+		})
+	}
+
+	messages := []sharechat.Message{}
+	for _, message := range sortedMessages {
+		if options.Limit > 0 && len(messages) >= options.Limit {
+			break
+		}
+
+		if message.ID == options.Before.ID || message.ID == options.After.ID {
+			continue
+		}
+
+		if options.RoomID != "" && message.RoomID != options.RoomID {
+			continue
+		}
+
+		if options.Before.ID != "" && message.Sent.After(options.Before.Sent) {
+			continue
+		}
+
+		if options.After.ID != "" && message.Sent.Before(options.After.Sent) {
+			continue
+		}
+
+		messages = append(messages, message)
+	}
+
+	return messages, nil
 }
