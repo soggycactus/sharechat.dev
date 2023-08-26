@@ -16,8 +16,8 @@ type RoomRepository interface {
 }
 
 type Room struct {
-	ID   string `json:"room_id" db:"room_id"`
-	Name string `json:"room_name" db:"room_name"`
+	ID   string `json:"roomId" db:"room_id"`
+	Name string `json:"roomName" db:"room_name"`
 	// inbound forwards Messages to members
 	inbound chan Message
 	// shutdown stops the Room

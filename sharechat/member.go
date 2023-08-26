@@ -17,7 +17,7 @@ type MemberRepository interface {
 type Member struct {
 	ID     string `json:"id" db:"member_id"`
 	Name   string `json:"name" db:"name"`
-	RoomID string `json:"room_id" db:"room_id"`
+	RoomID string `json:"roomId" db:"room_id"`
 	conn   Connection
 	// inbound receives Messages from Room
 	inbound chan Message

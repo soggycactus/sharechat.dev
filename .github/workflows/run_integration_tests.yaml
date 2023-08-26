@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     services:
       postgres:
-        image: postgres:13.0
+        image: postgres:15.4
         # Set Postgres db, user, password
         env:
           POSTGRES_DB: public
