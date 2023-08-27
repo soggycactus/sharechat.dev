@@ -129,6 +129,7 @@ func TestAll(t *testing.T) {
 
 		require.Equal(t, 1, len(result), "should only return one message")
 		assert.Equal(t, testMessages[i].ID, (result)[0].ID, "should return the correct message")
+		assert.NotEmpty(t, (result)[0].MemberName, "should have member name on message")
 		cursor = sharechat.MessageCursor{
 			ID:   (result)[0].ID,
 			Sent: (result)[0].Sent,
