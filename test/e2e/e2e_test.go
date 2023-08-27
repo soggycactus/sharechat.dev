@@ -137,6 +137,8 @@ func ServeRoom(t *testing.T, e *httpexpect.Expect, roomID string) {
 
 		for _, message := range r.Value("messages").Array().Iter() {
 			message.Object().Keys().ContainsOnly("id", "roomId", "memberId", "memberName", "type", "message", "sent")
+			message.Object().Value("roomId").String().Equal(roomID)
+			message.Object().Value("memberName").String().NotEmpty()
 			receivedMessages[message.Object().Value("id").String().Raw()] = struct{}{}
 		}
 		cursor = r.Value("next").String().Raw()

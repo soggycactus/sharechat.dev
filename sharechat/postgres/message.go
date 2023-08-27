@@ -16,7 +16,11 @@ const (
 	INSERT INTO messages (message_id, type, message, room_id, member_id) VALUES ($1,$2,$3,$4,$5) 
 	RETURNING message_id, type, message, room_id, member_id, sent
 	`
-	getMessagesQuery = "SELECT message_id, type, message, sent, room_id, member_id FROM messages WHERE 1=1"
+	getMessagesQuery = `
+	SELECT message_id, type, message, sent, m.room_id, m.member_id, name as member_name 
+	FROM messages m JOIN members b ON m.member_id = b.member_id
+	WHERE 1=1
+	`
 )
 
 func NewMessageRepository(db *sql.DB, driver string) *MessageRepository {
@@ -77,7 +81,7 @@ func (m *MessageRepository) buildGetMessagesQuery(options sharechat.GetMessageOp
 	}
 
 	if options.RoomID != "" {
-		if _, err := builder.WriteString(fmt.Sprintf(" AND room_id='%s'", options.RoomID)); err != nil {
+		if _, err := builder.WriteString(fmt.Sprintf(" AND m.room_id='%s'", options.RoomID)); err != nil {
 			return nil, err
 		}
 	}
